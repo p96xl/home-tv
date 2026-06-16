@@ -61,6 +61,12 @@ export default function App() {
       return next
     })
     if (patch.country) loadChannels(patch.country.toUpperCase())
+    // Sync to backend so /playlist.m3u stays current for the Chromecast
+    fetch('/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }).catch(() => {})
   }, [loadChannels])
 
   // Load countries once
@@ -131,7 +137,7 @@ export default function App() {
   }, [settings.blacklisted_languages, updateSettings])
 
   const removeFilter = useCallback((id: string) => {
-    if (id === 'country') return // Country pill is permanent
+    if (id === 'country') return
     if (id.startsWith('bl-')) {
       const lang = id.slice(3)
       updateSettings({ blacklisted_languages: settings.blacklisted_languages.filter(l => l !== lang) })
@@ -140,7 +146,6 @@ export default function App() {
     }
   }, [settings.blacklisted_languages, updateSettings])
 
-  // Country always shown as permanent pill, then blacklist pills, then client filters
   const allPills = useMemo<Filter[]>(() => [
     { id: 'country', field: 'country' as FilterField, value: settings.country, negate: false },
     ...settings.blacklisted_languages.map(lang => ({
@@ -153,7 +158,6 @@ export default function App() {
     setChannels(prev => prev.map(c => c.url === url ? { ...c, is_live: live } : c))
   }, [])
 
-  // Keyboard navigation
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!filteredChannels.length) return

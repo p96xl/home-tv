@@ -1,11 +1,13 @@
 import asyncio
 import json
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 SETTINGS_FILE = Path("settings.json")
@@ -113,3 +115,40 @@ async def validate(country: str = "UA") -> dict:
         "results": _results.get(code, {}),
         "running": code in _running,
     }
+
+
+@app.get("/playlist.m3u")
+async def playlist():
+    code = _settings["country"].upper()
+    blacklist = set(_settings.get("blacklisted_languages", []))
+
+    async with httpx.AsyncClient(timeout=30, headers=HEADERS) as c:
+        r = await c.get(f"https://iptv-org.github.io/iptv/countries/{code.lower()}.m3u")
+
+    lines = r.text.splitlines()
+    out = ["#EXTM3U"]
+    i = 0
+    country_results = _results.get(code, {})
+    while i < len(lines):
+        line = lines[i].strip()
+        if line.startswith("#EXTINF") and i + 1 < len(lines):
+            url = lines[i + 1].strip()
+            if url.startswith("http"):
+                lang_match = re.search(r'tvg-language="([^"]*)"', line)
+                langs = [l.strip() for l in (lang_match.group(1) if lang_match else "").split(";") if l.strip()]
+                if blacklist and langs and any(l in blacklist for l in langs):
+                    i += 2
+                    continue
+                if country_results.get(url) is False:
+                    i += 2
+                    continue
+                out.append(line)
+                out.append(url)
+                i += 2
+                continue
+        i += 1
+
+    if code not in _results and code not in _running:
+        asyncio.create_task(run_validation(code))
+
+    return Response(content="\n".join(out), media_type="application/x-mpegURL")
