@@ -1,10 +1,16 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { Channel, Country, Settings, Filter, FilterField } from './types'
 import ChannelList from './components/ChannelList'
 import Player from './components/Player'
 
 const IPTV = 'https://iptv-org.github.io'
 const DEFAULT: Settings = { country: 'UA', blacklisted_languages: [] }
+const STORAGE_KEY = 'home-tv-settings'
+
+function loadSettings(): Settings {
+  try { return { ...DEFAULT, ...JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') } }
+  catch { return DEFAULT }
+}
 
 function parseM3U(text: string): Channel[] {
   const lines = text.split('\n')
@@ -27,12 +33,11 @@ function parseM3U(text: string): Channel[] {
 export default function App() {
   const [channels, setChannels] = useState<Channel[]>([])
   const [countries, setCountries] = useState<Country[]>([])
-  const [settings, setSettings] = useState<Settings>(DEFAULT)
+  const [settings, setSettings] = useState<Settings>(loadSettings)
   const [selectedIdx, setSelectedIdx] = useState(0)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Filter[]>([])
   const [loading, setLoading] = useState(false)
-  const prevCountry = useRef(DEFAULT.country)
 
   const loadChannels = useCallback(async (code: string) => {
     setLoading(true)
@@ -48,25 +53,14 @@ export default function App() {
     }
   }, [])
 
-  const updateSettings = useCallback(async (patch: Partial<Settings>) => {
+  const updateSettings = useCallback((patch: Partial<Settings>) => {
     setSettings(prev => {
       const next = { ...prev, ...patch }
       if (patch.country) next.country = patch.country.toUpperCase()
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
       return next
     })
-    if (patch.country) {
-      const code = patch.country.toUpperCase()
-      prevCountry.current = code
-      loadChannels(code)
-    }
-    try {
-      const saved: Settings = await fetch('/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      }).then(r => r.json())
-      setSettings(saved)
-    } catch { /* backend optional, optimistic update already applied */ }
+    if (patch.country) loadChannels(patch.country.toUpperCase())
   }, [loadChannels])
 
   // Load countries once
@@ -74,25 +68,8 @@ export default function App() {
     fetch(`${IPTV}/api/countries.json`).then(r => r.json()).then(setCountries).catch(console.error)
   }, [])
 
-  // Initial channel load
-  useEffect(() => { loadChannels(DEFAULT.country) }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Poll settings every 5s so Chromecast stays in sync with phone changes
-  useEffect(() => {
-    const sync = async () => {
-      try {
-        const data: Settings = await fetch('/settings').then(r => r.json())
-        setSettings(data)
-        if (data.country.toUpperCase() !== prevCountry.current.toUpperCase()) {
-          prevCountry.current = data.country.toUpperCase()
-          loadChannels(data.country)
-        }
-      } catch { /* backend optional */ }
-    }
-    sync()
-    const id = setInterval(sync, 5000)
-    return () => clearInterval(id)
-  }, [loadChannels])
+  // Initial channel load from saved (or default) country
+  useEffect(() => { loadChannels(loadSettings().country) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Language-blacklisted view
   const visibleChannels = useMemo(() => {
@@ -143,7 +120,6 @@ export default function App() {
     [...new Set(channels.flatMap(ch => ch.category ? [ch.category] : []))].sort()
   , [channels])
 
-  // Country → server-synced (Chromecast inherits). Language-exclude → server-synced. Rest → client-only.
   const addFilter = useCallback((f: Omit<Filter, 'id'>) => {
     if (f.field === 'country') {
       updateSettings({ country: f.value })
