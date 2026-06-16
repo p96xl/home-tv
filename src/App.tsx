@@ -118,7 +118,7 @@ export default function App() {
         else if (f.field === 'category')
           hit = ch.category === f.value
         else if (f.field === 'live')
-          hit = f.value === 'true' ? ch.is_live === true : ch.is_live !== true
+          hit = f.value === 'true' ? ch.is_live !== false : ch.is_live === false
         else hit = true
         return f.negate ? !hit : hit
       })

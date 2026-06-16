@@ -88,21 +88,27 @@ export default function ChannelList({ channels, selectedIdx, loading, search, on
       {/* Active filter pills */}
       {filters.length > 0 && (
         <div className="px-2 pt-1.5 pb-1 flex flex-wrap gap-1 border-b border-white/5 flex-shrink-0">
-          {filters.map(f => (
-            <span
-              key={f.id}
-              className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border ${
-                f.field === 'country'
-                  ? 'bg-zinc-700/60 border-zinc-600 text-white/70'
-                  : 'bg-blue-500/15 border-blue-500/20 text-blue-200'
-              }`}
-            >
-              {pillLabel(f, countries)}
-              {f.field !== 'country' && (
+          {filters.map(f => {
+            if (f.field === 'country') return (
+              <button
+                key={f.id}
+                onClick={() => { setBField('country'); setBuilding(true) }}
+                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border bg-zinc-700/60 border-zinc-600 text-white/70 hover:text-white/90 hover:border-zinc-400 transition-colors"
+              >
+                {pillLabel(f, countries)}
+                <span className="text-white/30 text-[9px]">▾</span>
+              </button>
+            )
+            return (
+              <span
+                key={f.id}
+                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border bg-blue-500/15 border-blue-500/20 text-blue-200"
+              >
+                {pillLabel(f, countries)}
                 <button onClick={() => onRemoveFilter(f.id)} className="text-blue-300/50 hover:text-blue-200 leading-none">✕</button>
-              )}
-            </span>
-          ))}
+              </span>
+            )
+          })}
         </div>
       )}
 
