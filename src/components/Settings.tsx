@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import type { Country, Settings } from '../types'
 
 interface Props {
@@ -10,29 +10,24 @@ interface Props {
 }
 
 export default function SettingsPanel({ countries, settings, availableLanguages, onUpdate, onClose }: Props) {
-  const [search, setSearch] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const selectRef = useRef<HTMLSelectElement>(null)
 
   useEffect(() => {
-    inputRef.current?.focus()
+    selectRef.current?.focus()
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const filtered = countries.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.code.toLowerCase().includes(search.toLowerCase())
-  )
-
   const toggleLanguage = (lang: string) => {
     const current = settings.blacklisted_languages
-    onUpdate({
-      blacklisted_languages: current.includes(lang)
-        ? current.filter(l => l !== lang)
-        : [...current, lang],
-    })
+    const next = current.includes(lang)
+      ? current.filter(l => l !== lang)
+      : [...current, lang]
+    onUpdate({ blacklisted_languages: next })
   }
+
+  const isBlacklisted = (lang: string) => settings.blacklisted_languages.includes(lang)
 
   return (
     <div
@@ -49,66 +44,56 @@ export default function SettingsPanel({ countries, settings, availableLanguages,
 
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
 
+          {/* Country */}
           <section>
             <h3 className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-3">Country</h3>
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder="Search countries…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500/50 text-white placeholder:text-white/20 mb-2"
-            />
-            <div className="max-h-56 overflow-y-auto rounded-lg border border-white/10 bg-black/20">
-              {filtered.map(c => (
-                <button
-                  key={c.code}
-                  onClick={() => onUpdate({ country: c.code })}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-white/5 transition-colors ${
-                    c.code === settings.country ? 'bg-blue-600/20 text-blue-300' : 'text-white/75'
-                  }`}
-                >
-                  <span className="text-base leading-none">{c.flag}</span>
-                  <span className="flex-1 truncate">{c.name}</span>
-                  <span className="text-[10px] font-mono text-white/25">{c.code}</span>
-                </button>
+            <select
+              ref={selectRef}
+              value={settings.country}
+              onChange={e => onUpdate({ country: e.target.value })}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-blue-500/50 text-white"
+            >
+              {countries.map(c => (
+                <option key={c.code} value={c.code} className="bg-zinc-900">
+                  {c.flag} {c.name} ({c.code})
+                </option>
               ))}
-              {!filtered.length && (
-                <p className="text-center text-xs text-white/20 py-4">No results</p>
-              )}
-            </div>
+            </select>
           </section>
 
+          {/* Language blacklist */}
           {availableLanguages.length > 0 && (
             <section>
               <h3 className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-1">Hide Languages</h3>
-              <p className="text-[10px] text-white/20 mb-3">Tap to hide channels in that language</p>
-              <div className="flex flex-wrap gap-2">
+              <p className="text-[10px] text-white/20 mb-3">Tap a language to hide it everywhere</p>
+              <div className="grid grid-cols-2 gap-2">
                 {availableLanguages.map(lang => (
                   <button
                     key={lang}
                     onClick={() => toggleLanguage(lang)}
-                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                      settings.blacklisted_languages.includes(lang)
-                        ? 'bg-red-500/20 text-red-400 line-through border border-red-500/30'
-                        : 'bg-white/5 text-white/60 border border-white/10 hover:bg-white/10 hover:text-white'
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all border ${
+                      isBlacklisted(lang)
+                        ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                        : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white'
                     }`}
                   >
-                    {lang}
+                    <span>{lang}</span>
+                    {isBlacklisted(lang) ? <span>✕</span> : <span className="opacity-20">○</span>}
                   </button>
                 ))}
               </div>
               {settings.blacklisted_languages.length > 0 && (
                 <button
                   onClick={() => onUpdate({ blacklisted_languages: [] })}
-                  className="mt-3 text-[10px] text-white/30 hover:text-white/60 underline"
+                  className="mt-4 w-full py-2 text-[10px] text-white/30 hover:text-white/60 border border-dashed border-white/10 rounded-lg"
                 >
-                  Clear all
+                  Show all languages
                 </button>
               )}
             </section>
           )}
 
+          {/* M3U */}
           <section>
             <h3 className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-2">M3U Playlist</h3>
             <p className="text-xs text-white/30 mb-2">For IPTV apps and Chromecast with Google TV:</p>

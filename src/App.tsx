@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import type { Channel, Country, Settings } from './types'
+import type { Channel, Country, Settings, Filter } from './types'
 import ChannelList from './components/ChannelList'
 import Player from './components/Player'
 import SettingsPanel from './components/Settings'
@@ -31,6 +31,7 @@ export default function App() {
   const [settings, setSettings] = useState<Settings>(DEFAULT)
   const [selectedIdx, setSelectedIdx] = useState(0)
   const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<Filter[]>([])
   const [showSettings, setShowSettings] = useState(false)
   const [loading, setLoading] = useState(false)
   const prevCountry = useRef(DEFAULT.country)
@@ -49,12 +50,15 @@ export default function App() {
     }
   }, [])
 
+  // Load countries once
   useEffect(() => {
     fetch(`${IPTV}/api/countries.json`).then(r => r.json()).then(setCountries).catch(console.error)
   }, [])
 
+  // Initial channel load
   useEffect(() => { loadChannels(DEFAULT.country) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load settings from server, then poll every 5s so Chromecast stays in sync with phone
   useEffect(() => {
     const sync = async () => {
       try {
@@ -71,6 +75,7 @@ export default function App() {
     return () => clearInterval(id)
   }, [loadChannels])
 
+  // Stream validation polling
   useEffect(() => {
     if (!channels.length) return
     let stopped = false
@@ -90,6 +95,7 @@ export default function App() {
     return () => { stopped = true }
   }, [channels.length, settings.country])
 
+  // Language-blacklisted view
   const visibleChannels = useMemo(() => {
     if (!settings.blacklisted_languages.length) return channels
     return channels.filter(ch => {
@@ -98,48 +104,59 @@ export default function App() {
     })
   }, [channels, settings.blacklisted_languages])
 
-  // Search filter — plain text searches name; field:value for language/category/live
+  // Text search (name only) + structured pill filters
   const filteredChannels = useMemo(() => {
-    const q = search.trim()
-    if (!q) return visibleChannels
-    const tokens = q.match(/(?:-?"[^"]*"|-?\S+)/g) ?? []
-    return visibleChannels.filter(ch =>
-      tokens.every(token => {
-        const negate = token.startsWith('-')
-        const t = negate ? token.slice(1) : token
-        const ci = t.indexOf(':')
+    let result = visibleChannels
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      result = result.filter(ch => ch.name.toLowerCase().includes(q))
+    }
+    for (const f of filters) {
+      result = result.filter(ch => {
         let hit: boolean
-        if (ci > 0) {
-          const field = t.slice(0, ci).toLowerCase()
-          const val = t.slice(ci + 1).replace(/^"|"$/g, '').toLowerCase()
-          if (field === 'name')          hit = ch.name.toLowerCase().includes(val)
-          else if (field === 'language') hit = (ch.language ?? '').toLowerCase().includes(val)
-          else if (field === 'category') hit = (ch.category ?? '').toLowerCase().includes(val)
-          else if (field === 'live')     hit = val === 'true' ? ch.is_live === true : ch.is_live !== true
-          else hit = true
-        } else {
-          hit = ch.name.toLowerCase().includes(t.toLowerCase().replace(/^"|"$/g, ''))
-        }
-        return negate ? !hit : hit
+        if (f.field === 'language')
+          hit = (ch.language ?? '').split(';').map(l => l.trim()).includes(f.value)
+        else if (f.field === 'category')
+          hit = ch.category === f.value
+        else
+          hit = f.value === 'true' ? ch.is_live === true : ch.is_live !== true
+        return f.negate ? !hit : hit
       })
-    )
-  }, [visibleChannels, search])
+    }
+    return result
+  }, [visibleChannels, search, filters])
 
-  useEffect(() => { setSelectedIdx(0) }, [search])
-
+  // Clamp selection when list shrinks
   useEffect(() => {
     if (filteredChannels.length && selectedIdx >= filteredChannels.length)
       setSelectedIdx(filteredChannels.length - 1)
   }, [filteredChannels.length, selectedIdx])
 
+  // Reset selection when search or filters change
+  useEffect(() => { setSelectedIdx(0) }, [search, filters])
+
   const availableLanguages = useMemo(() =>
     [...new Set(channels.flatMap(ch => ch.language ? ch.language.split(';').map(l => l.trim()) : []))].sort()
   , [channels])
 
+  const availableCategories = useMemo(() =>
+    [...new Set(channels.flatMap(ch => ch.category ? [ch.category] : []))].sort()
+  , [channels])
+
+  const addFilter = useCallback((f: Omit<Filter, 'id'>) => {
+    setFilters(prev => [...prev, { ...f, id: String(Date.now()) }])
+  }, [])
+
+  const removeFilter = useCallback((id: string) => {
+    setFilters(prev => prev.filter(f => f.id !== id))
+  }, [])
+
+  // markLive uses url to avoid stale-closure issues with indices
   const markLive = useCallback((url: string, live: boolean) => {
     setChannels(prev => prev.map(c => c.url === url ? { ...c, is_live: live } : c))
   }, [])
 
+  // Keyboard navigation
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (showSettings || !filteredChannels.length) return
@@ -156,14 +173,19 @@ export default function App() {
   }, [filteredChannels.length, showSettings])
 
   const updateSettings = useCallback(async (patch: Partial<Settings>) => {
-    const next = { ...settings, ...patch }
-    if (patch.country) next.country = patch.country.toUpperCase()
-    setSettings(next)
+    setSettings(prev => {
+      const next = { ...prev, ...patch }
+      if (patch.country) next.country = patch.country.toUpperCase()
+      return next
+    })
+
     if (patch.country) {
-      prevCountry.current = next.country
-      loadChannels(next.country)
+      const code = patch.country.toUpperCase()
+      prevCountry.current = code
+      loadChannels(code)
       setShowSettings(false)
     }
+
     try {
       const saved: Settings = await fetch('/settings', {
         method: 'POST',
@@ -172,7 +194,7 @@ export default function App() {
       }).then(r => r.json())
       setSettings(saved)
     } catch { /* backend optional, optimistic update already applied */ }
-  }, [settings, loadChannels])
+  }, [loadChannels])
 
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-white overflow-hidden select-none">
@@ -205,6 +227,11 @@ export default function App() {
           search={search}
           onSearch={setSearch}
           onSelect={setSelectedIdx}
+          filters={filters}
+          availableLanguages={availableLanguages}
+          availableCategories={availableCategories}
+          onAddFilter={addFilter}
+          onRemoveFilter={removeFilter}
         />
         <Player channel={filteredChannels[selectedIdx] ?? null} onLive={markLive} />
       </div>

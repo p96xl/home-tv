@@ -19,3 +19,12 @@ export interface Settings {
   country: string
   blacklisted_languages: string[]
 }
+
+export type FilterField = 'language' | 'category' | 'live'
+
+export interface Filter {
+  id: string
+  field: FilterField
+  value: string
+  negate: boolean
+}
