@@ -4,13 +4,12 @@ import type { Channel } from '../types'
 
 interface Props {
   channel: Channel | null
-  channelIdx: number
-  onLive: (idx: number, live: boolean) => void
+  onLive: (url: string, live: boolean) => void
 }
 
 type State = 'idle' | 'loading' | 'playing' | 'error'
 
-export default function Player({ channel, channelIdx, onLive }: Props) {
+export default function Player({ channel, onLive }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const [state, setState] = useState<State>('idle')
@@ -22,7 +21,7 @@ export default function Player({ channel, channelIdx, onLive }: Props) {
     hlsRef.current?.destroy()
     setState('loading')
 
-    const fail = () => { setState('error'); onLive(channelIdx, false) }
+    const fail = () => { setState('error'); onLive(channel.url, false) }
 
     if (Hls.isSupported()) {
       const hls = new Hls({ enableWorker: false })
@@ -32,12 +31,12 @@ export default function Player({ channel, channelIdx, onLive }: Props) {
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         video.play().catch(() => {})
         setState('playing')
-        onLive(channelIdx, true)
+        onLive(channel.url, true)
       })
       hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) fail() })
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = channel.url
-      video.oncanplay = () => { setState('playing'); onLive(channelIdx, true) }
+      video.oncanplay = () => { setState('playing'); onLive(channel.url, true) }
       video.onerror = fail
       video.play().catch(() => {})
     } else {
@@ -45,7 +44,7 @@ export default function Player({ channel, channelIdx, onLive }: Props) {
     }
 
     return () => { hlsRef.current?.destroy(); hlsRef.current = null }
-  }, [channel?.url, channelIdx, onLive])
+  }, [channel?.url, onLive])
 
   if (!channel) {
     return (
@@ -82,8 +81,9 @@ export default function Player({ channel, channelIdx, onLive }: Props) {
             )}
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-[10px] font-mono text-white/30">CH {String(channel.number).padStart(3, '00')}</span>
+                <span className="text-[10px] font-mono text-white/30">CH {String(channel.number).padStart(3, '0')}</span>
                 {state === 'playing' && <span className="text-[10px] text-green-400 font-mono">● LIVE</span>}
+                {channel.language && <span className="text-[10px] text-white/20 font-mono">{channel.language}</span>}
               </div>
               <p className="text-white font-semibold text-lg leading-tight">{channel.name}</p>
             </div>

@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
-import type { Channel, Country } from './types'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import type { Channel, Country, Settings } from './types'
 import ChannelList from './components/ChannelList'
 import Player from './components/Player'
-import Settings from './components/Settings'
+import SettingsPanel from './components/Settings'
 
 const IPTV = 'https://iptv-org.github.io'
+const DEFAULT: Settings = { country: 'UA', blacklisted_languages: [] }
 
 function parseM3U(text: string): Channel[] {
   const lines = text.split('\n')
@@ -15,10 +16,10 @@ function parseM3U(text: string): Channel[] {
     const url = lines[i + 1]?.trim()
     if (!url?.startsWith('http')) continue
     const name = line.replace(/.*,/, '').trim()
-    const logoMatch = line.match(/tvg-logo="([^"]+)"/)
-    const logo = logoMatch?.[1] || null
+    const logo = line.match(/tvg-logo="([^"]+)"/)?.[1] || null
     const id = line.match(/tvg-id="([^"]+)"/)?.[1] ?? name
-    channels.push({ id, name, logo, url, number: channels.length + 1, is_live: null })
+    const language = line.match(/tvg-language="([^"]+)"/)?.[1] || null
+    channels.push({ id, name, logo, url, number: channels.length + 1, language, is_live: null })
   }
   return channels
 }
@@ -26,10 +27,11 @@ function parseM3U(text: string): Channel[] {
 export default function App() {
   const [channels, setChannels] = useState<Channel[]>([])
   const [countries, setCountries] = useState<Country[]>([])
+  const [settings, setSettings] = useState<Settings>(DEFAULT)
   const [selectedIdx, setSelectedIdx] = useState(0)
-  const [country, setCountry] = useState(() => localStorage.getItem('home-tv-country') ?? 'UA')
   const [showSettings, setShowSettings] = useState(false)
   const [loading, setLoading] = useState(false)
+  const prevCountry = useRef(DEFAULT.country)
 
   const loadChannels = useCallback(async (code: string) => {
     setLoading(true)
@@ -49,48 +51,70 @@ export default function App() {
     fetch(`${IPTV}/api/countries.json`).then(r => r.json()).then(setCountries).catch(console.error)
   }, [])
 
+  useEffect(() => { loadChannels(DEFAULT.country) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
-    loadChannels(country)
-    localStorage.setItem('home-tv-country', country)
-  }, [country, loadChannels])
+    const sync = async () => {
+      try {
+        const data: Settings = await fetch('/settings').then(r => r.json())
+        setSettings(data)
+        if (data.country.toUpperCase() !== prevCountry.current.toUpperCase()) {
+          prevCountry.current = data.country.toUpperCase()
+          loadChannels(data.country)
+        }
+      } catch { /* backend optional */ }
+    }
+    sync()
+    const id = setInterval(sync, 5000)
+    return () => clearInterval(id)
+  }, [loadChannels])
 
-  const markLive = useCallback((idx: number, live: boolean) => {
-    setChannels(prev => {
-      if (!prev[idx]) return prev
-      const next = [...prev]
-      next[idx] = { ...next[idx], is_live: live }
-      return next
-    })
-  }, [])
-
-  // Poll backend validator and update channel statuses
   useEffect(() => {
     if (!channels.length) return
     let stopped = false
-
     const poll = async () => {
       try {
-        const data = await fetch(`/validate?country=${country}`).then(r => r.json())
+        const data = await fetch(`/validate?country=${settings.country}`).then(r => r.json())
         const results: Record<string, boolean | null> = data.results ?? {}
         setChannels(prev => prev.map(ch => {
           const live = results[ch.url]
           return live !== undefined && live !== ch.is_live ? { ...ch, is_live: live } : ch
         }))
-        if (!data.running && !stopped) return  // done, stop polling
-      } catch { /* server not running — dots update on playback instead */ }
+        if (!data.running) return
+      } catch { /* backend optional */ }
       if (!stopped) setTimeout(poll, 4000)
     }
-
     poll()
     return () => { stopped = true }
-  }, [channels.length, country])
+  }, [channels.length, settings.country])
+
+  const visibleChannels = useMemo(() => {
+    if (!settings.blacklisted_languages.length) return channels
+    return channels.filter(ch => {
+      if (!ch.language) return true
+      return !ch.language.split(';').map(l => l.trim()).some(l => settings.blacklisted_languages.includes(l))
+    })
+  }, [channels, settings.blacklisted_languages])
+
+  useEffect(() => {
+    if (visibleChannels.length && selectedIdx >= visibleChannels.length)
+      setSelectedIdx(visibleChannels.length - 1)
+  }, [visibleChannels.length, selectedIdx])
+
+  const availableLanguages = useMemo(() =>
+    [...new Set(channels.flatMap(ch => ch.language ? ch.language.split(';').map(l => l.trim()) : []))].sort()
+  , [channels])
+
+  const markLive = useCallback((url: string, live: boolean) => {
+    setChannels(prev => prev.map(c => c.url === url ? { ...c, is_live: live } : c))
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (showSettings || !channels.length) return
+      if (showSettings || !visibleChannels.length) return
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
         e.preventDefault()
-        setSelectedIdx(i => Math.min(i + 1, channels.length - 1))
+        setSelectedIdx(i => Math.min(i + 1, visibleChannels.length - 1))
       } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
         e.preventDefault()
         setSelectedIdx(i => Math.max(i - 1, 0))
@@ -98,12 +122,26 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [channels.length, showSettings])
+  }, [visibleChannels.length, showSettings])
 
-  const handleCountryChange = (code: string) => {
-    setCountry(code)
-    setShowSettings(false)
-  }
+  const updateSettings = useCallback(async (patch: Partial<Settings>) => {
+    const next = { ...settings, ...patch }
+    if (patch.country) next.country = patch.country.toUpperCase()
+    setSettings(next)
+    if (patch.country) {
+      prevCountry.current = next.country
+      loadChannels(next.country)
+      setShowSettings(false)
+    }
+    try {
+      const saved: Settings = await fetch('/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      }).then(r => r.json())
+      setSettings(saved)
+    } catch { /* backend optional, optimistic update already applied */ }
+  }, [settings, loadChannels])
 
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-white overflow-hidden select-none">
@@ -111,8 +149,13 @@ export default function App() {
         <div className="flex items-center gap-3">
           <span className="font-bold tracking-tight">📺 Home TV</span>
           <span className="text-[10px] font-mono text-white/30 border border-white/10 rounded px-1.5 py-0.5 uppercase tracking-widest">
-            {country}
+            {settings.country}
           </span>
+          {settings.blacklisted_languages.length > 0 && (
+            <span className="text-[10px] text-orange-400/60">
+              {visibleChannels.length}/{channels.length} channels
+            </span>
+          )}
         </div>
         <button
           onClick={() => setShowSettings(true)}
@@ -125,19 +168,20 @@ export default function App() {
 
       <div className="flex flex-1 overflow-hidden">
         <ChannelList
-          channels={channels}
+          channels={visibleChannels}
           selectedIdx={selectedIdx}
           loading={loading}
           onSelect={setSelectedIdx}
         />
-        <Player channel={channels[selectedIdx] ?? null} channelIdx={selectedIdx} onLive={markLive} />
+        <Player channel={visibleChannels[selectedIdx] ?? null} onLive={markLive} />
       </div>
 
       {showSettings && (
-        <Settings
+        <SettingsPanel
           countries={countries}
-          currentCountry={country}
-          onCountryChange={handleCountryChange}
+          settings={settings}
+          availableLanguages={availableLanguages}
+          onUpdate={updateSettings}
           onClose={() => setShowSettings(false)}
         />
       )}

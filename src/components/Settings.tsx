@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
-import type { Country } from '../types'
+import type { Country, Settings } from '../types'
 
 interface Props {
   countries: Country[]
-  currentCountry: string
-  onCountryChange: (code: string) => void
+  settings: Settings
+  availableLanguages: string[]
+  onUpdate: (patch: Partial<Settings>) => void
   onClose: () => void
 }
 
-export default function Settings({ countries, currentCountry, onCountryChange, onClose }: Props) {
+export default function SettingsPanel({ countries, settings, availableLanguages, onUpdate, onClose }: Props) {
   const [search, setSearch] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -24,6 +25,15 @@ export default function Settings({ countries, currentCountry, onCountryChange, o
     c.code.toLowerCase().includes(search.toLowerCase())
   )
 
+  const toggleLanguage = (lang: string) => {
+    const current = settings.blacklisted_languages
+    onUpdate({
+      blacklisted_languages: current.includes(lang)
+        ? current.filter(l => l !== lang)
+        : [...current, lang],
+    })
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-end bg-black/60 backdrop-blur-sm"
@@ -37,7 +47,8 @@ export default function Settings({ countries, currentCountry, onCountryChange, o
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+
           <section>
             <h3 className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-3">Country</h3>
             <input
@@ -48,13 +59,13 @@ export default function Settings({ countries, currentCountry, onCountryChange, o
               onChange={e => setSearch(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500/50 text-white placeholder:text-white/20 mb-2"
             />
-            <div className="max-h-80 overflow-y-auto rounded-lg border border-white/10 bg-black/20">
+            <div className="max-h-56 overflow-y-auto rounded-lg border border-white/10 bg-black/20">
               {filtered.map(c => (
                 <button
                   key={c.code}
-                  onClick={() => onCountryChange(c.code)}
+                  onClick={() => onUpdate({ country: c.code })}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-white/5 transition-colors ${
-                    c.code === currentCountry ? 'bg-blue-600/20 text-blue-300' : 'text-white/75'
+                    c.code === settings.country ? 'bg-blue-600/20 text-blue-300' : 'text-white/75'
                   }`}
                 >
                   <span className="text-base leading-none">{c.flag}</span>
@@ -68,13 +79,44 @@ export default function Settings({ countries, currentCountry, onCountryChange, o
             </div>
           </section>
 
+          {availableLanguages.length > 0 && (
+            <section>
+              <h3 className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-1">Hide Languages</h3>
+              <p className="text-[10px] text-white/20 mb-3">Tap to hide channels in that language</p>
+              <div className="flex flex-wrap gap-2">
+                {availableLanguages.map(lang => (
+                  <button
+                    key={lang}
+                    onClick={() => toggleLanguage(lang)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                      settings.blacklisted_languages.includes(lang)
+                        ? 'bg-red-500/20 text-red-400 line-through border border-red-500/30'
+                        : 'bg-white/5 text-white/60 border border-white/10 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    {lang}
+                  </button>
+                ))}
+              </div>
+              {settings.blacklisted_languages.length > 0 && (
+                <button
+                  onClick={() => onUpdate({ blacklisted_languages: [] })}
+                  className="mt-3 text-[10px] text-white/30 hover:text-white/60 underline"
+                >
+                  Clear all
+                </button>
+              )}
+            </section>
+          )}
+
           <section>
             <h3 className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-2">M3U Playlist</h3>
             <p className="text-xs text-white/30 mb-2">For IPTV apps and Chromecast with Google TV:</p>
             <code className="block text-[11px] text-blue-300/80 bg-black/40 rounded-lg px-3 py-2 break-all border border-white/5">
-              {'https://iptv-org.github.io/iptv/index.country.' + currentCountry.toLowerCase() + '.m3u'}
+              {'https://iptv-org.github.io/iptv/countries/' + settings.country.toLowerCase() + '.m3u'}
             </code>
           </section>
+
         </div>
       </div>
     </div>
