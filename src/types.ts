@@ -20,7 +20,7 @@ export interface Settings {
   blacklisted_languages: string[]
 }
 
-export type FilterField = 'language' | 'category'
+export type FilterField = 'language' | 'category' | 'country' | 'live'
 
 export interface Filter {
   id: string

@@ -112,9 +112,14 @@ export default function App() {
     }
     for (const f of filters) {
       result = result.filter(ch => {
-        const hit = f.field === 'language'
-          ? (ch.language ?? '').split(';').map(l => l.trim()).includes(f.value)
-          : ch.category === f.value
+        let hit: boolean
+        if (f.field === 'language')
+          hit = (ch.language ?? '').split(';').map(l => l.trim()).includes(f.value)
+        else if (f.field === 'category')
+          hit = ch.category === f.value
+        else if (f.field === 'live')
+          hit = f.value === 'true' ? ch.is_live === true : ch.is_live !== true
+        else hit = true
         return f.negate ? !hit : hit
       })
     }
@@ -138,10 +143,11 @@ export default function App() {
     [...new Set(channels.flatMap(ch => ch.category ? [ch.category] : []))].sort()
   , [channels])
 
-  // Language-exclude pills are server-synced (Chromecast inherits them).
-  // All other pills are client-only.
+  // Country → server-synced (Chromecast inherits). Language-exclude → server-synced. Rest → client-only.
   const addFilter = useCallback((f: Omit<Filter, 'id'>) => {
-    if (f.field === 'language' && f.negate) {
+    if (f.field === 'country') {
+      updateSettings({ country: f.value })
+    } else if (f.field === 'language' && f.negate) {
       updateSettings({ blacklisted_languages: [...settings.blacklisted_languages, f.value] })
     } else {
       setFilters(prev => [...prev, { ...f, id: String(Date.now()) }])
@@ -149,6 +155,7 @@ export default function App() {
   }, [settings.blacklisted_languages, updateSettings])
 
   const removeFilter = useCallback((id: string) => {
+    if (id === 'country') return // Country pill is permanent
     if (id.startsWith('bl-')) {
       const lang = id.slice(3)
       updateSettings({ blacklisted_languages: settings.blacklisted_languages.filter(l => l !== lang) })
@@ -157,13 +164,14 @@ export default function App() {
     }
   }, [settings.blacklisted_languages, updateSettings])
 
-  // Merge server-synced blacklist pills + client-only filter pills for display
+  // Country always shown as permanent pill, then blacklist pills, then client filters
   const allPills = useMemo<Filter[]>(() => [
+    { id: 'country', field: 'country' as FilterField, value: settings.country, negate: false },
     ...settings.blacklisted_languages.map(lang => ({
       id: `bl-${lang}`, field: 'language' as FilterField, value: lang, negate: true,
     })),
     ...filters,
-  ], [settings.blacklisted_languages, filters])
+  ], [settings.country, settings.blacklisted_languages, filters])
 
   const markLive = useCallback((url: string, live: boolean) => {
     setChannels(prev => prev.map(c => c.url === url ? { ...c, is_live: live } : c))
@@ -205,8 +213,6 @@ export default function App() {
           onAddFilter={addFilter}
           onRemoveFilter={removeFilter}
           countries={countries}
-          country={settings.country}
-          onCountryChange={code => updateSettings({ country: code })}
         />
         <Player channel={filteredChannels[selectedIdx] ?? null} onLive={markLive} />
       </div>
