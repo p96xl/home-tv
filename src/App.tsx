@@ -40,6 +40,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
 
   const loadChannels = useCallback(async (code: string) => {
+    if (!code) { setChannels([]); return }
     setLoading(true)
     setChannels([])
     setSelectedIdx(0)
@@ -74,8 +75,7 @@ export default function App() {
     fetch(`${IPTV}/api/countries.json`).then(r => r.json()).then(setCountries).catch(console.error)
   }, [])
 
-  // Initial channel load from saved (or default) country
-  useEffect(() => { loadChannels(loadSettings().country) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const c = loadSettings().country; if (c) loadChannels(c) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Language-blacklisted view
   const visibleChannels = useMemo(() => {
@@ -137,7 +137,7 @@ export default function App() {
   }, [settings.blacklisted_languages, updateSettings])
 
   const removeFilter = useCallback((id: string) => {
-    if (id === 'country') return
+    if (id === 'country') { updateSettings({ country: '' }); setChannels([]); return }
     if (id.startsWith('bl-')) {
       const lang = id.slice(3)
       updateSettings({ blacklisted_languages: settings.blacklisted_languages.filter(l => l !== lang) })
@@ -147,7 +147,7 @@ export default function App() {
   }, [settings.blacklisted_languages, updateSettings])
 
   const allPills = useMemo<Filter[]>(() => [
-    { id: 'country', field: 'country' as FilterField, value: settings.country, negate: false },
+    ...(settings.country ? [{ id: 'country', field: 'country' as FilterField, value: settings.country, negate: false }] : []),
     ...settings.blacklisted_languages.map(lang => ({
       id: `bl-${lang}`, field: 'language' as FilterField, value: lang, negate: true,
     })),
@@ -158,6 +158,7 @@ export default function App() {
     setChannels(prev => prev.map(c => c.url === url ? { ...c, is_live: live } : c))
   }, [])
 
+  // Keyboard navigation
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!filteredChannels.length) return

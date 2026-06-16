@@ -90,23 +90,36 @@ export default function ChannelList({ channels, selectedIdx, loading, search, on
         <div className="px-2 pt-1.5 pb-1 flex flex-wrap gap-1 border-b border-white/5 flex-shrink-0">
           {filters.map(f => {
             if (f.field === 'country') return (
-              <button
-                key={f.id}
-                onClick={() => { setBField('country'); setBuilding(true) }}
-                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border bg-zinc-700/60 border-zinc-600 text-white/70 hover:text-white/90 hover:border-zinc-400 transition-colors"
-              >
-                {pillLabel(f, countries)}
-                <span className="text-white/30 text-[9px]">▾</span>
-              </button>
+              <span key={f.id} className="flex items-center rounded-full border bg-zinc-700/60 border-zinc-600 text-white/70 text-[11px] overflow-hidden">
+                <button onClick={() => { setBField('country'); setBuilding(true) }} className="flex items-center gap-1 px-2 py-0.5 hover:text-white/90 transition-colors">
+                  {pillLabel(f, countries)}<span className="text-white/30 text-[9px]">▾</span>
+                </button>
+                <button onClick={() => onRemoveFilter(f.id)} className="pr-2 text-white/25 hover:text-white leading-none">✕</button>
+              </span>
             )
             return (
-              <span
-                key={f.id}
-                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border bg-blue-500/15 border-blue-500/20 text-blue-200"
-              >
+              <span key={f.id} className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border bg-blue-500/15 border-blue-500/20 text-blue-200">
                 {pillLabel(f, countries)}
                 <button onClick={() => onRemoveFilter(f.id)} className="text-blue-300/50 hover:text-blue-200 leading-none">✕</button>
               </span>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Language chips */}
+      {availableLanguages.length > 0 && (
+        <div className="px-2 py-1.5 border-b border-white/5 flex-shrink-0 flex flex-wrap gap-1">
+          {availableLanguages.map(lang => {
+            const excluded = filters.some(f => f.id === `bl-${lang}`)
+            return (
+              <button
+                key={lang}
+                onClick={() => excluded ? onRemoveFilter(`bl-${lang}`) : onAddFilter({ field: 'language', value: lang, negate: true })}
+                className={`px-1.5 py-0.5 rounded text-[10px] border transition-colors ${excluded ? 'bg-red-500/10 border-red-500/20 text-red-400/60 line-through' : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70'}`}
+              >
+                {lang}
+              </button>
             )
           })}
         </div>
