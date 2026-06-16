@@ -36,7 +36,7 @@ export default function App() {
     setChannels([])
     setSelectedIdx(0)
     try {
-      const text = await fetch(`${IPTV}/iptv/index.country.${code.toLowerCase()}.m3u`).then(r => r.text())
+      const text = await fetch(`${IPTV}/iptv/countries/${code.toLowerCase()}.m3u`).then(r => r.text())
       setChannels(parseM3U(text))
     } catch {
       setChannels([])
@@ -62,6 +62,28 @@ export default function App() {
       return next
     })
   }, [])
+
+  // Poll backend validator and update channel statuses
+  useEffect(() => {
+    if (!channels.length) return
+    let stopped = false
+
+    const poll = async () => {
+      try {
+        const data = await fetch(`/validate?country=${country}`).then(r => r.json())
+        const results: Record<string, boolean | null> = data.results ?? {}
+        setChannels(prev => prev.map(ch => {
+          const live = results[ch.url]
+          return live !== undefined && live !== ch.is_live ? { ...ch, is_live: live } : ch
+        }))
+        if (!data.running && !stopped) return  // done, stop polling
+      } catch { /* server not running — dots update on playback instead */ }
+      if (!stopped) setTimeout(poll, 4000)
+    }
+
+    poll()
+    return () => { stopped = true }
+  }, [channels.length, country])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

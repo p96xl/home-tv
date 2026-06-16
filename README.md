@@ -8,17 +8,26 @@ Powered by [iptv-org](https://github.com/iptv-org/iptv) — 10,000+ channels acr
 
 - Filter by country (200+ supported, defaults to Ukraine 🇺🇦)
 - TV-style keyboard navigation (↑ ↓)
-- Live/dead stream indicators — updated as you watch
+- Live/dead stream indicators — pre-validated by backend, updated on playback
 - Channel logos, numbers, and status dots
 - Country preference saved in the browser
 - M3U playlist link in settings for IPTV apps
 
 ## Run
 
+**Frontend** (required):
 ```bash
 npm install
 npm run dev   # → http://localhost:5173
 ```
+
+**Validator backend** (optional, but recommended — shows green/red dots upfront):
+```bash
+pip install -r requirements.txt
+uvicorn server:app --port 8000
+```
+
+On startup the validator probes all streams for the default country (UA) concurrently. The frontend polls `/validate` every 4 seconds and updates status dots as results arrive. If the backend isn't running, the app still works — streams just start gray and turn green/red as you actually watch them.
 
 ## Chromecast
 
@@ -35,4 +44,4 @@ npm run dev   # → http://localhost:5173
 
 ## How it works
 
-Channel data and stream URLs come directly from the [iptv-org](https://github.com/iptv-org/iptv) CDN (no backend needed). Stream health is detected live — if hls.js can’t load a stream, the channel turns red. No pre-validation server required.
+Channel data and stream URLs come directly from the [iptv-org](https://github.com/iptv-org/iptv) CDN. The optional Python backend (`server.py`) probes each stream URL concurrently at startup and caches results. The frontend polls `/validate` and updates the sidebar dots as results come in. Dead streams are shown red so you skip them without wasting time.
