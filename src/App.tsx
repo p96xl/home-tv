@@ -19,7 +19,8 @@ function parseM3U(text: string): Channel[] {
     const logo = line.match(/tvg-logo="([^"]+)"/)?.[1] || null
     const id = line.match(/tvg-id="([^"]+)"/)?.[1] ?? name
     const language = line.match(/tvg-language="([^"]+)"/)?.[1] || null
-    channels.push({ id, name, logo, url, number: channels.length + 1, language, is_live: null })
+    const category = line.match(/group-title="([^"]+)"/)?.[1] || null
+    channels.push({ id, name, logo, url, number: channels.length + 1, language, category, is_live: null })
   }
   return channels
 }
@@ -29,6 +30,7 @@ export default function App() {
   const [countries, setCountries] = useState<Country[]>([])
   const [settings, setSettings] = useState<Settings>(DEFAULT)
   const [selectedIdx, setSelectedIdx] = useState(0)
+  const [search, setSearch] = useState('')
   const [showSettings, setShowSettings] = useState(false)
   const [loading, setLoading] = useState(false)
   const prevCountry = useRef(DEFAULT.country)
@@ -96,10 +98,39 @@ export default function App() {
     })
   }, [channels, settings.blacklisted_languages])
 
+  // Search filter — plain text searches name; field:value for language/category/live
+  const filteredChannels = useMemo(() => {
+    const q = search.trim()
+    if (!q) return visibleChannels
+    const tokens = q.match(/(?:-?"[^"]*"|-?\S+)/g) ?? []
+    return visibleChannels.filter(ch =>
+      tokens.every(token => {
+        const negate = token.startsWith('-')
+        const t = negate ? token.slice(1) : token
+        const ci = t.indexOf(':')
+        let hit: boolean
+        if (ci > 0) {
+          const field = t.slice(0, ci).toLowerCase()
+          const val = t.slice(ci + 1).replace(/^"|"$/g, '').toLowerCase()
+          if (field === 'name')          hit = ch.name.toLowerCase().includes(val)
+          else if (field === 'language') hit = (ch.language ?? '').toLowerCase().includes(val)
+          else if (field === 'category') hit = (ch.category ?? '').toLowerCase().includes(val)
+          else if (field === 'live')     hit = val === 'true' ? ch.is_live === true : ch.is_live !== true
+          else hit = true
+        } else {
+          hit = ch.name.toLowerCase().includes(t.toLowerCase().replace(/^"|"$/g, ''))
+        }
+        return negate ? !hit : hit
+      })
+    )
+  }, [visibleChannels, search])
+
+  useEffect(() => { setSelectedIdx(0) }, [search])
+
   useEffect(() => {
-    if (visibleChannels.length && selectedIdx >= visibleChannels.length)
-      setSelectedIdx(visibleChannels.length - 1)
-  }, [visibleChannels.length, selectedIdx])
+    if (filteredChannels.length && selectedIdx >= filteredChannels.length)
+      setSelectedIdx(filteredChannels.length - 1)
+  }, [filteredChannels.length, selectedIdx])
 
   const availableLanguages = useMemo(() =>
     [...new Set(channels.flatMap(ch => ch.language ? ch.language.split(';').map(l => l.trim()) : []))].sort()
@@ -111,10 +142,10 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (showSettings || !visibleChannels.length) return
+      if (showSettings || !filteredChannels.length) return
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
         e.preventDefault()
-        setSelectedIdx(i => Math.min(i + 1, visibleChannels.length - 1))
+        setSelectedIdx(i => Math.min(i + 1, filteredChannels.length - 1))
       } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
         e.preventDefault()
         setSelectedIdx(i => Math.max(i - 1, 0))
@@ -122,7 +153,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [visibleChannels.length, showSettings])
+  }, [filteredChannels.length, showSettings])
 
   const updateSettings = useCallback(async (patch: Partial<Settings>) => {
     const next = { ...settings, ...patch }
@@ -168,12 +199,14 @@ export default function App() {
 
       <div className="flex flex-1 overflow-hidden">
         <ChannelList
-          channels={visibleChannels}
+          channels={filteredChannels}
           selectedIdx={selectedIdx}
           loading={loading}
+          search={search}
+          onSearch={setSearch}
           onSelect={setSelectedIdx}
         />
-        <Player channel={visibleChannels[selectedIdx] ?? null} onLive={markLive} />
+        <Player channel={filteredChannels[selectedIdx] ?? null} onLive={markLive} />
       </div>
 
       {showSettings && (

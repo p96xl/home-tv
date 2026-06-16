@@ -5,6 +5,7 @@ export interface Channel {
   url: string
   number: number
   language: string | null
+  category: string | null
   is_live: boolean | null
 }
 
