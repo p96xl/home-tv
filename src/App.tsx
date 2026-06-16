@@ -1,18 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import type { Channel, Country, Settings, Filter, FilterField } from './types'
+import type { Channel, Country, Filter } from './types'
 import ChannelList from './components/ChannelList'
 import Player from './components/Player'
 
 const IPTV = 'https://iptv-org.github.io'
-const DEFAULT: Settings = { country: 'UA', blacklisted_languages: [] }
-const STORAGE_KEY = 'home-tv-settings'
+const FILTER_KEY = 'home-tv-filters'
 
-function loadSettings(): Settings {
-  try { return { ...DEFAULT, ...JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') } }
-  catch { return DEFAULT }
+function loadFilters(): Filter[] {
+  try { return JSON.parse(localStorage.getItem(FILTER_KEY) ?? '[]') }
+  catch { return [] }
 }
 
-function parseM3U(text: string): Channel[] {
+function parseM3U(text: string, fallbackCountry: string | null = null): Channel[] {
   const lines = text.split('\n')
   const channels: Channel[] = []
   for (let i = 0; i < lines.length; i++) {
@@ -25,101 +24,106 @@ function parseM3U(text: string): Channel[] {
     const id = line.match(/tvg-id="([^"]+)"/)?.[1] ?? name
     const language = line.match(/tvg-language="([^"]+)"/)?.[1] || null
     const category = line.match(/group-title="([^"]+)"/)?.[1] || null
-    channels.push({ id, name, logo, url, number: channels.length + 1, language, category, is_live: null })
+    const country = line.match(/tvg-country="([^"]+)"/)?.[1] || fallbackCountry
+    channels.push({ id, name, logo, url, number: 0, language, category, country, is_live: null })
   }
+  channels.forEach((ch, i) => { ch.number = i + 1 })
   return channels
 }
 
 export default function App() {
   const [channels, setChannels] = useState<Channel[]>([])
   const [countries, setCountries] = useState<Country[]>([])
-  const [settings, setSettings] = useState<Settings>(loadSettings)
   const [selectedIdx, setSelectedIdx] = useState(0)
   const [search, setSearch] = useState('')
-  const [filters, setFilters] = useState<Filter[]>([])
+  const [filters, setFilters] = useState<Filter[]>(loadFilters)
   const [loading, setLoading] = useState(false)
 
-  const loadChannels = useCallback(async (code: string) => {
-    if (!code) { setChannels([]); return }
+  // Persist filters
+  useEffect(() => {
+    localStorage.setItem(FILTER_KEY, JSON.stringify(filters))
+  }, [filters])
+
+  // Country includes (sorted join) drives which M3Us to load
+  const countryKey = filters
+    .filter(f => f.field === 'country' && !f.negate)
+    .map(f => f.value)
+    .sort()
+    .join(',')
+
+  useEffect(() => {
+    let cancelled = false
     setLoading(true)
     setChannels([])
     setSelectedIdx(0)
-    try {
-      const text = await fetch(`${IPTV}/iptv/countries/${code.toLowerCase()}.m3u`).then(r => r.text())
-      setChannels(parseM3U(text))
-    } catch {
-      setChannels([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+    const codes = countryKey ? countryKey.split(',') : []
+    const urls = codes.length
+      ? codes.map(c => `${IPTV}/iptv/countries/${c.toLowerCase()}.m3u`)
+      : [`${IPTV}/iptv/index.m3u`]
 
-  const updateSettings = useCallback((patch: Partial<Settings>) => {
-    setSettings(prev => {
-      const next = { ...prev, ...patch }
-      if (patch.country) next.country = patch.country.toUpperCase()
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-      return next
-    })
-    if (patch.country) loadChannels(patch.country.toUpperCase())
-    // Sync to backend so /playlist.m3u stays current for the Chromecast
-    fetch('/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch),
-    }).catch(() => {})
-  }, [loadChannels])
+    Promise.all(
+      urls.map((url, i) => fetch(url).then(r => r.text()).then(t => parseM3U(t, codes[i] ?? null)))
+    ).then(results => {
+      if (cancelled) return
+      const merged = results.flat()
+      merged.forEach((ch, i) => { ch.number = i + 1 })
+      setChannels(merged)
+    }).catch(() => { if (!cancelled) setChannels([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
 
-  // Load countries once
+    return () => { cancelled = true }
+  }, [countryKey])
+
   useEffect(() => {
     fetch(`${IPTV}/api/countries.json`).then(r => r.json()).then(setCountries).catch(console.error)
   }, [])
 
-  useEffect(() => { const c = loadSettings().country; if (c) loadChannels(c) }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Language-blacklisted view
-  const visibleChannels = useMemo(() => {
-    if (!settings.blacklisted_languages.length) return channels
-    return channels.filter(ch => {
-      if (!ch.language) return true
-      return !ch.language.split(';').map(l => l.trim()).some(l => settings.blacklisted_languages.includes(l))
-    })
-  }, [channels, settings.blacklisted_languages])
-
-  // Text search + structured pill filters
   const filteredChannels = useMemo(() => {
-    let result = visibleChannels
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      result = result.filter(ch => ch.name.toLowerCase().includes(q))
-    }
-    for (const f of filters) {
-      result = result.filter(ch => {
-        let hit: boolean
-        if (f.field === 'language')
-          hit = (ch.language ?? '').split(';').map(l => l.trim()).includes(f.value)
-        else if (f.field === 'category')
-          hit = ch.category === f.value
-        else if (f.field === 'live')
-          hit = f.value === 'true' ? ch.is_live !== false : ch.is_live === false
-        else hit = true
-        return f.negate ? !hit : hit
-      })
-    }
-    return result
-  }, [visibleChannels, search, filters])
+    let result = search.trim()
+      ? channels.filter(ch => ch.name.toLowerCase().includes(search.toLowerCase()))
+      : channels
 
-  // Clamp selection when list shrinks
+    // Group by field: country includes are handled via loading, only process excludes
+    const byField: Record<string, { inc: string[], exc: string[] }> = {}
+    for (const f of filters) {
+      if (!byField[f.field]) byField[f.field] = { inc: [], exc: [] }
+      if (f.negate) byField[f.field].exc.push(f.value)
+      else if (f.field !== 'country') byField[f.field].inc.push(f.value)
+    }
+
+    for (const [field, { inc, exc }] of Object.entries(byField)) {
+      if (field === 'country') {
+        if (exc.length) result = result.filter(ch => !exc.includes(ch.country ?? ''))
+        continue
+      }
+      if (field === 'live') {
+        if (inc.includes('true')) result = result.filter(ch => ch.is_live !== false)
+        else if (inc.includes('false')) result = result.filter(ch => ch.is_live === false)
+        continue
+      }
+      const vals = (ch: Channel): string[] => {
+        if (field === 'language') return (ch.language ?? '').split(';').map(l => l.trim()).filter(Boolean)
+        if (field === 'category') return ch.category ? [ch.category] : []
+        return []
+      }
+      if (inc.length) result = result.filter(ch => inc.some(v => vals(ch).includes(v)))
+      if (exc.length) result = result.filter(ch => !exc.some(v => vals(ch).includes(v)))
+    }
+
+    return result
+  }, [channels, filters, search])
+
   useEffect(() => {
     if (filteredChannels.length && selectedIdx >= filteredChannels.length)
       setSelectedIdx(filteredChannels.length - 1)
   }, [filteredChannels.length, selectedIdx])
 
-  // Reset selection when search or filters change
   useEffect(() => { setSelectedIdx(0) }, [search, filters])
 
   const availableLanguages = useMemo(() =>
-    [...new Set(channels.flatMap(ch => ch.language ? ch.language.split(';').map(l => l.trim()) : []))].sort()
+    [...new Set(channels.flatMap(ch => ch.language
+      ? ch.language.split(';').map(l => l.trim()).filter(Boolean)
+      : []))].sort()
   , [channels])
 
   const availableCategories = useMemo(() =>
@@ -127,38 +131,17 @@ export default function App() {
   , [channels])
 
   const addFilter = useCallback((f: Omit<Filter, 'id'>) => {
-    if (f.field === 'country') {
-      updateSettings({ country: f.value })
-    } else if (f.field === 'language' && f.negate) {
-      updateSettings({ blacklisted_languages: [...settings.blacklisted_languages, f.value] })
-    } else {
-      setFilters(prev => [...prev, { ...f, id: String(Date.now()) }])
-    }
-  }, [settings.blacklisted_languages, updateSettings])
+    setFilters(prev => [...prev, { ...f, id: String(Date.now()) }])
+  }, [])
 
   const removeFilter = useCallback((id: string) => {
-    if (id === 'country') { updateSettings({ country: '' }); setChannels([]); return }
-    if (id.startsWith('bl-')) {
-      const lang = id.slice(3)
-      updateSettings({ blacklisted_languages: settings.blacklisted_languages.filter(l => l !== lang) })
-    } else {
-      setFilters(prev => prev.filter(f => f.id !== id))
-    }
-  }, [settings.blacklisted_languages, updateSettings])
-
-  const allPills = useMemo<Filter[]>(() => [
-    ...(settings.country ? [{ id: 'country', field: 'country' as FilterField, value: settings.country, negate: false }] : []),
-    ...settings.blacklisted_languages.map(lang => ({
-      id: `bl-${lang}`, field: 'language' as FilterField, value: lang, negate: true,
-    })),
-    ...filters,
-  ], [settings.country, settings.blacklisted_languages, filters])
+    setFilters(prev => prev.filter(f => f.id !== id))
+  }, [])
 
   const markLive = useCallback((url: string, live: boolean) => {
     setChannels(prev => prev.map(c => c.url === url ? { ...c, is_live: live } : c))
   }, [])
 
-  // Keyboard navigation
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!filteredChannels.length) return
@@ -179,7 +162,6 @@ export default function App() {
       <header className="flex items-center px-5 h-12 border-b border-white/5 bg-black/30 flex-shrink-0">
         <span className="font-bold tracking-tight">📺 Home TV</span>
       </header>
-
       <div className="flex flex-1 overflow-hidden">
         <ChannelList
           channels={filteredChannels}
@@ -188,7 +170,7 @@ export default function App() {
           search={search}
           onSearch={setSearch}
           onSelect={setSelectedIdx}
-          filters={allPills}
+          filters={filters}
           availableLanguages={availableLanguages}
           availableCategories={availableCategories}
           onAddFilter={addFilter}

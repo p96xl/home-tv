@@ -6,6 +6,7 @@ export interface Channel {
   number: number
   language: string | null
   category: string | null
+  country: string | null
   is_live: boolean | null
 }
 
@@ -13,11 +14,6 @@ export interface Country {
   name: string
   code: string
   flag: string
-}
-
-export interface Settings {
-  country: string
-  blacklisted_languages: string[]
 }
 
 export type FilterField = 'language' | 'category' | 'country' | 'live'
