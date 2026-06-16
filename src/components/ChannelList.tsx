@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Channel, Filter, FilterField } from '../types'
+import type { Channel, Country, Filter, FilterField } from '../types'
 
 interface Props {
   channels: Channel[]
@@ -13,6 +13,9 @@ interface Props {
   availableCategories: string[]
   onAddFilter: (f: Omit<Filter, 'id'>) => void
   onRemoveFilter: (id: string) => void
+  countries: Country[]
+  country: string
+  onCountryChange: (code: string) => void
 }
 
 const dot = (ch: Channel) =>
@@ -21,13 +24,12 @@ const dot = (ch: Channel) =>
   'bg-white/15'
 
 function pillLabel(f: Filter): string {
-  if (f.field === 'live') return f.negate ? '⚫ not live' : '🟢 live'
   return f.negate ? `not ${f.value}` : f.value
 }
 
-const sel = 'bg-white/5 border border-white/10 rounded text-xs text-white outline-none focus:border-white/20 px-2 py-1.5'
+const sel = 'bg-zinc-800 border border-white/10 rounded text-xs text-white outline-none focus:border-white/20 px-2 py-1.5'
 
-export default function ChannelList({ channels, selectedIdx, loading, search, onSearch, onSelect, filters, availableLanguages, availableCategories, onAddFilter, onRemoveFilter }: Props) {
+export default function ChannelList({ channels, selectedIdx, loading, search, onSearch, onSelect, filters, availableLanguages, availableCategories, onAddFilter, onRemoveFilter, countries, country, onCountryChange }: Props) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
   const [building, setBuilding] = useState(false)
   const [bField, setBField] = useState<FilterField>('language')
@@ -51,6 +53,21 @@ export default function ChannelList({ channels, selectedIdx, loading, search, on
 
   return (
     <div className="w-64 flex-shrink-0 flex flex-col border-r border-white/5 bg-black/20">
+
+      {/* Country selector */}
+      <div className="px-2 pt-2 pb-1.5 border-b border-white/5 flex-shrink-0">
+        <select
+          value={country}
+          onChange={e => onCountryChange(e.target.value)}
+          className="w-full bg-zinc-800 border border-white/10 rounded text-xs text-white outline-none focus:border-white/20 px-2 py-1.5"
+        >
+          {countries.map(c => (
+            <option key={c.code} value={c.code} className="bg-zinc-800 text-white">
+              {c.flag} {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {/* Search bar */}
       <div className="px-2 py-2 border-b border-white/5 flex-shrink-0">
@@ -95,33 +112,25 @@ export default function ChannelList({ channels, selectedIdx, loading, search, on
         <div className="px-2 py-2 border-b border-white/5 bg-black/30 flex-shrink-0 space-y-1.5">
           <div className="flex gap-1.5">
             <select value={bField} onChange={e => setBField(e.target.value as FilterField)} className={sel + ' flex-1'}>
-              <option value="language">Language</option>
-              <option value="category">Category</option>
-              <option value="live">Live</option>
+              <option value="language" className="bg-zinc-800">Language</option>
+              <option value="category" className="bg-zinc-800">Category</option>
             </select>
             <select value={bNegate ? 'ex' : 'in'} onChange={e => setBNegate(e.target.value === 'ex')} className={sel + ' w-[5.5rem]'}>
-              <option value="in">Include</option>
-              <option value="ex">Exclude</option>
+              <option value="in" className="bg-zinc-800">Include</option>
+              <option value="ex" className="bg-zinc-800">Exclude</option>
             </select>
           </div>
           <div className="flex gap-1.5">
             {bField === 'language' && (
               <select value={bValue} onChange={e => setBValue(e.target.value)} className={sel + ' flex-1'}>
-                <option value="">Pick…</option>
-                {availableLanguages.map(l => <option key={l} value={l}>{l}</option>)}
+                <option value="" className="bg-zinc-800">Pick…</option>
+                {availableLanguages.map(l => <option key={l} value={l} className="bg-zinc-800">{l}</option>)}
               </select>
             )}
             {bField === 'category' && (
               <select value={bValue} onChange={e => setBValue(e.target.value)} className={sel + ' flex-1'}>
-                <option value="">Pick…</option>
-                {availableCategories.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            )}
-            {bField === 'live' && (
-              <select value={bValue} onChange={e => setBValue(e.target.value)} className={sel + ' flex-1'}>
-                <option value="">Pick…</option>
-                <option value="true">Live streams</option>
-                <option value="false">Offline</option>
+                <option value="" className="bg-zinc-800">Pick…</option>
+                {availableCategories.map(c => <option key={c} value={c} className="bg-zinc-800">{c}</option>)}
               </select>
             )}
             <button
