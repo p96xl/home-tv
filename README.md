@@ -23,7 +23,8 @@ npm run dev   # → http://localhost:5173
 
 **Validator backend** (optional, but recommended — shows green/red dots upfront):
 ```bash
-pip install -r requirements.txt
+pipx install uvicorn[standard]
+pipx inject uvicorn fastapi httpx
 uvicorn server:app --port 8000
 ```
 
