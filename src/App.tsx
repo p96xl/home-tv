@@ -1,28 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import type { Channel, Country, Filter, FilterField } from './types'
+import type { Channel, Country, Filter } from './types'
 import ChannelList from './components/ChannelList'
 import Player from './components/Player'
 
 const IPTV = 'https://iptv-org.github.io'
 
 const DEFAULT_FILTERS: Filter[] = [{ id: 'default-live', field: 'live', value: 'true', negate: false }]
-
-function filtersFromUrl(): Filter[] {
-  const fs = new URLSearchParams(window.location.search).getAll('f')
-  if (!fs.length) return DEFAULT_FILTERS
-  return fs.map((s, i) => {
-    const negate = s.startsWith('!')
-    const rest = negate ? s.slice(1) : s
-    const colon = rest.indexOf(':')
-    return { id: `url-${i}`, field: rest.slice(0, colon) as FilterField, value: rest.slice(colon + 1), negate }
-  })
-}
-
-function filtersToSearch(filters: Filter[]): string {
-  const p = new URLSearchParams()
-  for (const f of filters) p.append('f', `${f.negate ? '!' : ''}${f.field}:${f.value}`)
-  return p.toString() ? '?' + p.toString() : ''
-}
 
 // languages.json shared fetch (~269KB, cached)
 let _langsP: Promise<{ code: string; name: string }[]> | null = null
@@ -80,21 +63,26 @@ export default function App() {
   const [languages, setLanguages] = useState<{ code: string; name: string }[]>([])
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [filters, setFilters] = useState<Filter[]>(filtersFromUrl)
+  const [filters, setFilters] = useState<Filter[]>([])
   const [loading, setLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const loadIdRef = useRef(0)
   const lastIncludeKeyRef = useRef('')
-  const filteredChannelsRef = useRef<Channel[]>([])
+  const filteredChannelsRef = useRef<typeof filteredChannels>([])
   const selectedUrlRef = useRef<string | null>(null)
+  const filtersReadyRef = useRef(false)
 
-  // Keep URL in sync with filters so bookmarks restore state
+  // Load filters from server on mount — server is the source of truth
   useEffect(() => {
-    window.history.replaceState(null, '', filtersToSearch(filters) || window.location.pathname)
-  }, [filters])
+    fetch('/api/filters')
+      .then(r => r.json())
+      .then(f => { filtersReadyRef.current = true; setFilters(f) })
+      .catch(() => { filtersReadyRef.current = true; setFilters(DEFAULT_FILTERS) })
+  }, [])
 
-  // Push filters to server so /playlist.m3u stays current for TiviMate
+  // Push to server on change (skip until initial load from server completes)
   useEffect(() => {
+    if (!filtersReadyRef.current) return
     fetch('/api/filters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(filters) }).catch(() => {})
   }, [filters])
 

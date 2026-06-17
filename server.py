@@ -11,10 +11,11 @@ from fastapi.responses import Response
 
 FILTERS_FILE = Path("filters.json")
 IPTV = "https://iptv-org.github.io"
+HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
 
 _default_filters = [{"id": "default-live", "field": "live", "value": "true", "negate": False}]
-
-HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
+_alive: set[str] | None = None  # None = probe not yet run
+_probe_task: asyncio.Task | None = None
 
 
 def _load_filters() -> list:
@@ -53,33 +54,10 @@ def _parse_m3u(text: str) -> list[dict]:
     return channels
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    yield
-
-
-app = FastAPI(lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-
-
-@app.get("/api/filters")
-def get_filters():
-    return _load_filters()
-
-
-@app.post("/api/filters")
-async def update_filters(request: Request):
-    _save_filters(await request.json())
-    return {"ok": True}
-
-
-@app.get("/playlist.m3u")
-async def get_playlist():
-    filters = _load_filters()
+async def _fetch_all_channels(filters: list) -> list[dict]:
     includes = [f for f in filters if not f["negate"] and f["field"] in ("country", "language")]
-
     if not includes:
-        return Response("#EXTM3U\n", media_type="audio/x-mpegurl")
+        return []
 
     async with httpx.AsyncClient(timeout=30, headers=HEADERS) as c:
         langs_r = await c.get(f"{IPTV}/api/languages.json")
@@ -96,7 +74,7 @@ async def get_playlist():
     async with httpx.AsyncClient(timeout=60, headers=HEADERS) as c:
         responses = await asyncio.gather(*[c.get(u) for u in m3u_urls], return_exceptions=True)
 
-    seen = set()
+    seen: set[str] = set()
     channels = []
     for r in responses:
         if isinstance(r, Exception):
@@ -111,6 +89,100 @@ async def get_playlist():
             channels = [ch for ch in channels if not ch["country"] or ch["country"] != f["value"].upper()]
         elif f["field"] == "category" and f["negate"]:
             channels = [ch for ch in channels if ch["category"] != f["value"]]
+
+    return channels
+
+
+async def _probe(url: str) -> bool:
+    try:
+        async with httpx.AsyncClient(timeout=6, follow_redirects=True, headers=HEADERS) as c:
+            if ".m3u8" in url or ".ts" in url:
+                r = await c.get(url)
+                return r.status_code == 200 and b"#EXT" in r.content[:256]
+            r = await c.head(url)
+            if r.status_code == 405:
+                r = await c.get(url)
+            return r.status_code < 400
+    except Exception:
+        return False
+
+
+async def _probe_loop() -> None:
+    global _alive
+    while True:
+        try:
+            filters = _load_filters()
+            channels = await _fetch_all_channels(filters)
+            if channels:
+                sem = asyncio.Semaphore(30)
+
+                async def check(url: str) -> tuple[str, bool]:
+                    async with sem:
+                        return url, await _probe(url)
+
+                results = await asyncio.gather(*[check(ch["url"]) for ch in channels], return_exceptions=True)
+                new_alive: set[str] = set()
+                for result in results:
+                    if not isinstance(result, Exception):
+                        url, ok = result
+                        if ok:
+                            new_alive.add(url)
+                _alive = new_alive
+                print(f"Alive check complete: {len(_alive)}/{len(channels)} channels alive")
+            else:
+                _alive = set()
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            print(f"Probe error: {e}")
+        await asyncio.sleep(3600)
+
+
+def _restart_probe() -> None:
+    global _probe_task, _alive
+    _alive = None  # serve all channels until new probe finishes
+    if _probe_task and not _probe_task.done():
+        _probe_task.cancel()
+    _probe_task = asyncio.create_task(_probe_loop())
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _restart_probe()
+    yield
+    if _probe_task:
+        _probe_task.cancel()
+
+
+app = FastAPI(lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+@app.get("/api/filters")
+def get_filters():
+    return _load_filters()
+
+
+@app.post("/api/filters")
+async def update_filters(request: Request):
+    _save_filters(await request.json())
+    _restart_probe()
+    return {"ok": True}
+
+
+@app.get("/api/probe-status")
+def probe_status():
+    return {"alive": len(_alive) if _alive is not None else None, "running": _alive is None}
+
+
+@app.get("/playlist.m3u")
+async def get_playlist():
+    filters = _load_filters()
+    channels = await _fetch_all_channels(filters)
+
+    # Only filter by alive status once a probe has completed
+    if _alive is not None:
+        channels = [ch for ch in channels if ch["url"] in _alive]
 
     lines = ["#EXTM3U"]
     for ch in channels:
