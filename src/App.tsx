@@ -61,7 +61,7 @@ export default function App() {
   const [languages, setLanguages] = useState<{ code: string; name: string }[]>([])
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [filters, setFilters] = useState<Filter[]>([])
+  const [filters, setFilters] = useState<Filter[]>([{ id: 'default-live', field: 'live', value: 'true', negate: false }])
   const [loading, setLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const loadIdRef = useRef(0)
