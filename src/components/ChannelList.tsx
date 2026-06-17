@@ -5,16 +5,15 @@ interface Props {
   channels: Channel[]
   selectedIdx: number
   loading: boolean
-  langLoading: boolean
   search: string
   onSearch: (q: string) => void
   onSelect: (idx: number) => void
   filters: Filter[]
-  availableLanguages: string[]
   availableCategories: string[]
   onAddFilter: (f: Omit<Filter, 'id'>) => void
   onRemoveFilter: (id: string) => void
   countries: Country[]
+  languages: { code: string; name: string }[]
 }
 
 const dot = (ch: Channel) =>
@@ -25,7 +24,8 @@ const dot = (ch: Channel) =>
 function pillLabel(f: Filter, countries: Country[]): string {
   if (f.field === 'country') {
     const c = countries.find(c => c.code === f.value)
-    return c ? `${c.flag} ${c.name}` : f.value
+    const label = c ? `${c.flag} ${c.name}` : f.value
+    return f.negate ? `not ${label}` : label
   }
   if (f.field === 'live') return f.value === 'true' ? '🟢 live' : '⚫ offline'
   return f.negate ? `not ${f.value}` : f.value
@@ -33,7 +33,7 @@ function pillLabel(f: Filter, countries: Country[]): string {
 
 const sel = 'bg-zinc-800 border border-white/10 rounded text-xs text-white outline-none focus:border-white/20 px-2 py-1.5'
 
-export default function ChannelList({ channels, selectedIdx, loading, langLoading, search, onSearch, onSelect, filters, availableLanguages, availableCategories, onAddFilter, onRemoveFilter, countries }: Props) {
+export default function ChannelList({ channels, selectedIdx, loading, search, onSearch, onSelect, filters, availableCategories, onAddFilter, onRemoveFilter, countries, languages }: Props) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
   const [building, setBuilding] = useState(false)
   const [bField, setBField] = useState<FilterField>('country')
@@ -55,7 +55,7 @@ export default function ChannelList({ channels, selectedIdx, loading, langLoadin
     setBNegate(false)
   }
 
-  const showIncExc = bField !== 'country'
+  const hasSource = filters.some(f => !f.negate && (f.field === 'country' || f.field === 'language'))
 
   return (
     <div className="w-64 flex-shrink-0 flex flex-col border-r border-white/5 bg-black/20">
@@ -89,40 +89,19 @@ export default function ChannelList({ channels, selectedIdx, loading, langLoadin
       {/* Active filter pills */}
       {filters.length > 0 && (
         <div className="px-2 pt-1.5 pb-1 flex flex-wrap gap-1 border-b border-white/5 flex-shrink-0">
-          {filters.map(f => {
-            if (f.field === 'country') return (
-              <span key={f.id} className="flex items-center rounded-full border bg-zinc-700/60 border-zinc-600 text-white/70 text-[11px] overflow-hidden">
-                <button onClick={() => { setBField('country'); setBuilding(true) }} className="flex items-center gap-1 px-2 py-0.5 hover:text-white/90 transition-colors">
-                  {pillLabel(f, countries)}<span className="text-white/30 text-[9px]">▾</span>
-                </button>
-                <button onClick={() => onRemoveFilter(f.id)} className="pr-2 text-white/25 hover:text-white leading-none">✕</button>
-              </span>
-            )
-            return (
-              <span key={f.id} className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border bg-blue-500/15 border-blue-500/20 text-blue-200">
-                {pillLabel(f, countries)}
-                <button onClick={() => onRemoveFilter(f.id)} className="text-blue-300/50 hover:text-blue-200 leading-none">✕</button>
-              </span>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Language chips */}
-      {availableLanguages.length > 0 && (
-        <div className="px-2 py-1.5 border-b border-white/5 flex-shrink-0 flex flex-wrap gap-1">
-          {availableLanguages.map(lang => {
-            const excluded = filters.some(f => f.id === `bl-${lang}`)
-            return (
-              <button
-                key={lang}
-                onClick={() => excluded ? onRemoveFilter(`bl-${lang}`) : onAddFilter({ field: 'language', value: lang, negate: true })}
-                className={`px-1.5 py-0.5 rounded text-[10px] border transition-colors ${excluded ? 'bg-red-500/10 border-red-500/20 text-red-400/60 line-through' : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70'}`}
-              >
-                {lang}
-              </button>
-            )
-          })}
+          {filters.map(f => (
+            <span
+              key={f.id}
+              className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border ${
+                f.negate
+                  ? 'bg-red-500/15 border-red-500/20 text-red-300'
+                  : 'bg-blue-500/15 border-blue-500/20 text-blue-200'
+              }`}
+            >
+              {pillLabel(f, countries)}
+              <button onClick={() => onRemoveFilter(f.id)} className="opacity-50 hover:opacity-100 leading-none">✕</button>
+            </span>
+          ))}
         </div>
       )}
 
@@ -136,12 +115,10 @@ export default function ChannelList({ channels, selectedIdx, loading, langLoadin
               <option value="category" className="bg-zinc-800">Category</option>
               <option value="live" className="bg-zinc-800">Live</option>
             </select>
-            {showIncExc && (
-              <select value={bNegate ? 'ex' : 'in'} onChange={e => setBNegate(e.target.value === 'ex')} className={sel + ' w-[5.5rem]'}>
-                <option value="in" className="bg-zinc-800">Include</option>
-                <option value="ex" className="bg-zinc-800">Exclude</option>
-              </select>
-            )}
+            <select value={bNegate ? 'ex' : 'in'} onChange={e => setBNegate(e.target.value === 'ex')} className={sel + ' w-[5.5rem]'}>
+              <option value="in" className="bg-zinc-800">Include</option>
+              <option value="ex" className="bg-zinc-800">Exclude</option>
+            </select>
           </div>
           <div className="flex gap-1.5">
             {bField === 'country' && (
@@ -153,13 +130,18 @@ export default function ChannelList({ channels, selectedIdx, loading, langLoadin
               </select>
             )}
             {bField === 'language' && (
-              <select value={bValue} onChange={e => setBValue(e.target.value)} className={sel + ' flex-1 min-w-0'}>
-                <option value="" className="bg-zinc-800">Pick…</option>
-                {availableLanguages.length === 0
-                  ? <option disabled className="bg-zinc-800 text-white/40">{langLoading ? 'Loading language data…' : 'No language data available'}</option>
-                  : availableLanguages.map(l => <option key={l} value={l} className="bg-zinc-800">{l}</option>)
-                }
-              </select>
+              <>
+                <input
+                  list="lang-list"
+                  value={bValue}
+                  onChange={e => setBValue(e.target.value)}
+                  placeholder="Type language…"
+                  className={sel + ' flex-1 min-w-0'}
+                />
+                <datalist id="lang-list">
+                  {languages.map(l => <option key={l.code} value={l.name} />)}
+                </datalist>
+              </>
             )}
             {bField === 'category' && (
               <select value={bValue} onChange={e => setBValue(e.target.value)} className={sel + ' flex-1 min-w-0'}>
@@ -188,7 +170,7 @@ export default function ChannelList({ channels, selectedIdx, loading, langLoadin
       {/* Channel count */}
       <div className="px-3 py-1.5 border-b border-white/5 flex-shrink-0">
         <p className="text-[10px] font-mono text-white/25 uppercase tracking-widest">
-          {loading ? 'Loading…' : `${channels.length} channels`}
+          {loading ? 'Loading…' : channels.length ? `${channels.length} channels` : ''}
         </p>
       </div>
 
@@ -218,8 +200,10 @@ export default function ChannelList({ channels, selectedIdx, loading, langLoadin
           </button>
         ))}
         {!loading && !channels.length && (
-          <p className="text-center text-white/20 text-xs py-12">
-            {(search || filters.length > 1) ? 'No matches' : 'No channels found'}
+          <p className="text-center text-white/20 text-xs py-12 px-4 leading-relaxed">
+            {!hasSource
+              ? 'Add a country or language filter to load channels'
+              : search ? 'No matches' : 'No channels found'}
           </p>
         )}
       </div>

@@ -1,19 +1,26 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import type { Channel, Country, Settings, Filter, FilterField } from './types'
+import type { Channel, Country, Filter } from './types'
 import ChannelList from './components/ChannelList'
 import Player from './components/Player'
 
 const IPTV = 'https://iptv-org.github.io'
 
-// Cached once per page load — feeds.json is ~7MB but browser caches it
-let _langMetaPromise: Promise<Map<string, string>> | null = null
+// languages.json shared fetch (~269KB, cached)
+let _langsP: Promise<{ code: string; name: string }[]> | null = null
+const fetchLangs = () => {
+  if (!_langsP) _langsP = fetch(`${IPTV}/api/languages.json`).then(r => r.json())
+  return _langsP
+}
+
+// feeds.json channel→language enrichment (~7MB, cached, lazy)
+let _langMetaP: Promise<Map<string, string>> | null = null
 function getLangMeta(): Promise<Map<string, string>> {
-  if (!_langMetaPromise) {
-    _langMetaPromise = Promise.all([
+  if (!_langMetaP) {
+    _langMetaP = Promise.all([
       fetch(`${IPTV}/api/feeds.json`).then(r => r.json()),
-      fetch(`${IPTV}/api/languages.json`).then(r => r.json()),
-    ]).then(([feeds, langs]: [any[], any[]]) => {
-      const langName = new Map<string, string>(langs.map(l => [l.code, l.name]))
+      fetchLangs(),
+    ]).then(([feeds, langs]: [any[], { code: string; name: string }[]]) => {
+      const langName = new Map(langs.map(l => [l.code, l.name]))
       const map = new Map<string, string>()
       for (const f of feeds) {
         if (!f.languages?.length) continue
@@ -24,14 +31,7 @@ function getLangMeta(): Promise<Map<string, string>> {
       return map
     })
   }
-  return _langMetaPromise
-}
-const DEFAULT: Settings = { country: 'UA', blacklisted_languages: [] }
-const STORAGE_KEY = 'home-tv-settings'
-
-function loadSettings(): Settings {
-  try { return { ...DEFAULT, ...JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') } }
-  catch { return DEFAULT }
+  return _langMetaP
 }
 
 function parseM3U(text: string): Channel[] {
@@ -47,7 +47,10 @@ function parseM3U(text: string): Channel[] {
     const id = line.match(/tvg-id="([^"]+)"/)?.[1] ?? name
     const language = line.match(/tvg-language="([^"]+)"/)?.[1] || null
     const category = line.match(/group-title="([^"]+)"/)?.[1] || null
-    channels.push({ id, name, logo, url, number: channels.length + 1, language, category, is_live: null })
+    // Extract country from tvg-id pattern "ChannelName.cc@feedId" or "ChannelName.cc"
+    const suffix = id.split('@')[0].split('.').pop() ?? ''
+    const country = suffix.length === 2 ? suffix.toUpperCase() : null
+    channels.push({ id, name, logo, url, number: channels.length + 1, language, category, country, is_live: null })
   }
   return channels
 }
@@ -55,88 +58,115 @@ function parseM3U(text: string): Channel[] {
 export default function App() {
   const [channels, setChannels] = useState<Channel[]>([])
   const [countries, setCountries] = useState<Country[]>([])
-  const [settings, setSettings] = useState<Settings>(loadSettings)
+  const [languages, setLanguages] = useState<{ code: string; name: string }[]>([])
   const [selectedIdx, setSelectedIdx] = useState(0)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Filter[]>([])
   const [loading, setLoading] = useState(false)
-  const [langLoading, setLangLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const enrichIdRef = useRef(0)
+  const loadIdRef = useRef(0)
+  const lastIncludeKeyRef = useRef('')
 
-  const loadChannels = useCallback(async (code: string) => {
-    if (!code) { setChannels([]); return }
+  // Load reference data once
+  useEffect(() => {
+    fetch(`${IPTV}/api/countries.json`).then(r => r.json()).then(setCountries).catch(console.error)
+    fetchLangs().then(setLanguages).catch(console.error)
+  }, [])
+
+  // Reload channels whenever include filters (country/language) change
+  useEffect(() => {
+    const includes = filters.filter(f => !f.negate && (f.field === 'country' || f.field === 'language'))
+    const key = includes.map(f => `${f.field}:${f.value}`).sort().join('|')
+    if (key === lastIncludeKeyRef.current) return
+    lastIncludeKeyRef.current = key
+
+    if (!key) { setChannels([]); return }
+
+    const loadId = ++loadIdRef.current
     setLoading(true)
     setChannels([])
     setSelectedIdx(0)
-    const enrichId = ++enrichIdRef.current
-    try {
-      const text = await fetch(`${IPTV}/iptv/countries/${code.toLowerCase()}.m3u`).then(r => r.text())
-      setChannels(parseM3U(text))
-      setLangLoading(true)
-      getLangMeta().then(langMap => {
-        if (enrichIdRef.current !== enrichId) return
-        setChannels(prev => prev.map(ch => ({
-          ...ch,
-          language: ch.language ?? langMap.get(ch.id) ?? langMap.get(ch.id.replace(/@.*$/, '')) ?? null,
-        })))
-        setLangLoading(false)
-      }).catch(() => setLangLoading(false))
-    } catch {
-      setChannels([])
-    } finally {
-      setLoading(false)
-    }
+
+    ;(async () => {
+      try {
+        const langCodes = await fetchLangs().then(langs => new Map(langs.map(l => [l.name, l.code])))
+        const urls = includes.map(f => {
+          if (f.field === 'country') return `${IPTV}/iptv/countries/${f.value.toLowerCase()}.m3u`
+          const code = langCodes.get(f.value) ?? f.value.toLowerCase()
+          return `${IPTV}/iptv/languages/${code}.m3u`
+        })
+        const texts = await Promise.all(urls.map(url => fetch(url).then(r => r.text()).catch(() => '')))
+        if (loadIdRef.current !== loadId) return
+
+        // Merge M3Us, deduplicate by stream URL
+        const seen = new Set<string>()
+        const merged: Channel[] = []
+        for (const text of texts) {
+          for (const ch of parseM3U(text)) {
+            if (!seen.has(ch.url)) {
+              seen.add(ch.url)
+              merged.push({ ...ch, number: merged.length + 1 })
+            }
+          }
+        }
+        setChannels(merged)
+        setLoading(false)
+
+        // Background language enrichment via feeds.json
+        if (merged.length) {
+          getLangMeta().then(langMap => {
+            if (loadIdRef.current !== loadId) return
+            setChannels(prev => prev.map(ch => ({
+              ...ch,
+              language: ch.language ?? langMap.get(ch.id) ?? langMap.get(ch.id.replace(/@.*$/, '')) ?? null,
+            })))
+          }).catch(() => {})
+        }
+      } catch {
+        if (loadIdRef.current !== loadId) return
+        setChannels([])
+        setLoading(false)
+      }
+    })()
+  }, [filters]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const addFilter = useCallback((f: Omit<Filter, 'id'>) => {
+    setFilters(prev => [...prev, { ...f, id: String(Date.now()) }])
   }, [])
 
-  const updateSettings = useCallback((patch: Partial<Settings>) => {
-    setSettings(prev => {
-      const next = { ...prev, ...patch }
-      if (patch.country) next.country = patch.country.toUpperCase()
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-      return next
-    })
-    if (patch.country) loadChannels(patch.country.toUpperCase())
-  }, [loadChannels])
-
-  // Load countries once
-  useEffect(() => {
-    fetch(`${IPTV}/api/countries.json`).then(r => r.json()).then(setCountries).catch(console.error)
+  const removeFilter = useCallback((id: string) => {
+    setFilters(prev => prev.filter(f => f.id !== id))
   }, [])
 
-  useEffect(() => { const c = loadSettings().country; if (c) loadChannels(c) }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Language-blacklisted view
-  const visibleChannels = useMemo(() => {
-    if (!settings.blacklisted_languages.length) return channels
-    return channels.filter(ch => {
-      if (!ch.language) return true
-      return !ch.language.split(';').map(l => l.trim()).some(l => settings.blacklisted_languages.includes(l))
-    })
-  }, [channels, settings.blacklisted_languages])
-
-  // Text search + structured pill filters
+  // Apply client-side filters (exclude always; category/live include also client-side)
   const filteredChannels = useMemo(() => {
-    let result = visibleChannels
+    let result = channels
     if (search.trim()) {
       const q = search.toLowerCase()
       result = result.filter(ch => ch.name.toLowerCase().includes(q))
     }
     for (const f of filters) {
-      result = result.filter(ch => {
-        let hit: boolean
-        if (f.field === 'language')
-          hit = (ch.language ?? '').split(';').map(l => l.trim()).includes(f.value)
-        else if (f.field === 'category')
-          hit = ch.category === f.value
-        else if (f.field === 'live')
-          hit = f.value === 'true' ? ch.is_live !== false : ch.is_live === false
-        else hit = true
-        return f.negate ? !hit : hit
-      })
+      if (f.field === 'country' && f.negate) {
+        result = result.filter(ch => !ch.country || ch.country !== f.value.toUpperCase())
+      } else if (f.field === 'language' && f.negate) {
+        result = result.filter(ch => {
+          if (!ch.language) return true
+          return !ch.language.split(';').map(l => l.trim()).includes(f.value)
+        })
+      } else if (f.field === 'category') {
+        result = result.filter(ch => {
+          const hit = ch.category === f.value
+          return f.negate ? !hit : hit
+        })
+      } else if (f.field === 'live') {
+        result = result.filter(ch => {
+          const hit = f.value === 'true' ? ch.is_live !== false : ch.is_live === false
+          return f.negate ? !hit : hit
+        })
+      }
     }
     return result
-  }, [visibleChannels, search, filters])
+  }, [channels, search, filters])
 
   // Clamp selection when list shrinks
   useEffect(() => {
@@ -144,44 +174,11 @@ export default function App() {
       setSelectedIdx(filteredChannels.length - 1)
   }, [filteredChannels.length, selectedIdx])
 
-  // Reset selection when search or filters change
   useEffect(() => { setSelectedIdx(0) }, [search, filters])
-
-  const availableLanguages = useMemo(() =>
-    [...new Set(channels.flatMap(ch => ch.language ? ch.language.split(';').map(l => l.trim()) : []))].sort()
-  , [channels])
 
   const availableCategories = useMemo(() =>
     [...new Set(channels.flatMap(ch => ch.category ? [ch.category] : []))].sort()
   , [channels])
-
-  const addFilter = useCallback((f: Omit<Filter, 'id'>) => {
-    if (f.field === 'country') {
-      updateSettings({ country: f.value })
-    } else if (f.field === 'language' && f.negate) {
-      updateSettings({ blacklisted_languages: [...settings.blacklisted_languages, f.value] })
-    } else {
-      setFilters(prev => [...prev, { ...f, id: String(Date.now()) }])
-    }
-  }, [settings.blacklisted_languages, updateSettings])
-
-  const removeFilter = useCallback((id: string) => {
-    if (id === 'country') { updateSettings({ country: '' }); setChannels([]); return }
-    if (id.startsWith('bl-')) {
-      const lang = id.slice(3)
-      updateSettings({ blacklisted_languages: settings.blacklisted_languages.filter(l => l !== lang) })
-    } else {
-      setFilters(prev => prev.filter(f => f.id !== id))
-    }
-  }, [settings.blacklisted_languages, updateSettings])
-
-  const allPills = useMemo<Filter[]>(() => [
-    ...(settings.country ? [{ id: 'country', field: 'country' as FilterField, value: settings.country, negate: false }] : []),
-    ...settings.blacklisted_languages.map(lang => ({
-      id: `bl-${lang}`, field: 'language' as FilterField, value: lang, negate: true,
-    })),
-    ...filters,
-  ], [settings.country, settings.blacklisted_languages, filters])
 
   const markLive = useCallback((url: string, live: boolean) => {
     setChannels(prev => prev.map(c => c.url === url ? { ...c, is_live: live } : c))
@@ -215,16 +212,15 @@ export default function App() {
             channels={filteredChannels}
             selectedIdx={selectedIdx}
             loading={loading}
-            langLoading={langLoading}
             search={search}
             onSearch={setSearch}
             onSelect={setSelectedIdx}
-            filters={allPills}
-            availableLanguages={availableLanguages}
+            filters={filters}
             availableCategories={availableCategories}
             onAddFilter={addFilter}
             onRemoveFilter={removeFilter}
             countries={countries}
+            languages={languages}
           />
         )}
         <button
