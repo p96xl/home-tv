@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
@@ -68,8 +68,8 @@ def get_filters():
 
 
 @app.post("/api/filters")
-def update_filters(filters: list):
-    _save_filters(filters)
+async def update_filters(request: Request):
+    _save_filters(await request.json())
     return {"ok": True}
 
 
