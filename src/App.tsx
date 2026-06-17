@@ -59,7 +59,7 @@ export default function App() {
   const [channels, setChannels] = useState<Channel[]>([])
   const [countries, setCountries] = useState<Country[]>([])
   const [languages, setLanguages] = useState<{ code: string; name: string }[]>([])
-  const [selectedIdx, setSelectedIdx] = useState(0)
+  const [selectedUrl, setSelectedUrl] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Filter[]>([])
   const [loading, setLoading] = useState(false)
@@ -85,7 +85,7 @@ export default function App() {
     const loadId = ++loadIdRef.current
     setLoading(true)
     setChannels([])
-    setSelectedIdx(0)
+    setSelectedUrl(null)
 
     ;(async () => {
       try {
@@ -168,13 +168,15 @@ export default function App() {
     return result
   }, [channels, search, filters])
 
-  // Clamp selection when list shrinks
+  // Auto-select first channel when none selected and list loads
   useEffect(() => {
-    if (filteredChannels.length && selectedIdx >= filteredChannels.length)
-      setSelectedIdx(filteredChannels.length - 1)
-  }, [filteredChannels.length, selectedIdx])
+    if (channels.length && !selectedUrl) setSelectedUrl(channels[0].url)
+  }, [channels.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { setSelectedIdx(0) }, [search, filters])
+  // Derive index into filtered list (for sidebar highlight; -1 = filtered out)
+  const selectedIdx = filteredChannels.findIndex(ch => ch.url === selectedUrl)
+  // Always play the selected channel regardless of search filter
+  const selectedChannel = channels.find(ch => ch.url === selectedUrl) ?? null
 
   const availableCategories = useMemo(() =>
     [...new Set(channels.flatMap(ch => ch.category ? [ch.category] : []))].sort()
@@ -188,12 +190,15 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!filteredChannels.length) return
+      const cur = filteredChannels.findIndex(ch => ch.url === selectedUrl)
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
         e.preventDefault()
-        setSelectedIdx(i => Math.min(i + 1, filteredChannels.length - 1))
+        const next = filteredChannels[Math.min(cur + 1, filteredChannels.length - 1)]
+        if (next) setSelectedUrl(next.url)
       } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
         e.preventDefault()
-        setSelectedIdx(i => Math.max(i - 1, 0))
+        const next = filteredChannels[Math.max(cur - 1, 0)]
+        if (next) setSelectedUrl(next.url)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -214,7 +219,7 @@ export default function App() {
             loading={loading}
             search={search}
             onSearch={setSearch}
-            onSelect={setSelectedIdx}
+            onSelect={idx => setSelectedUrl(filteredChannels[idx]?.url ?? null)}
             filters={filters}
             availableCategories={availableCategories}
             onAddFilter={addFilter}
@@ -230,7 +235,7 @@ export default function App() {
         >
           {sidebarOpen ? '‹' : '›'}
         </button>
-        <Player channel={filteredChannels[selectedIdx] ?? null} onLive={markLive} sidebarOpen={sidebarOpen} />
+        <Player channel={selectedChannel} onLive={markLive} sidebarOpen={sidebarOpen} />
       </div>
     </div>
   )
