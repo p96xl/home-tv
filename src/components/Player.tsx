@@ -5,12 +5,13 @@ import type { Channel } from '../types'
 interface Props {
   channel: Channel | null
   onLive: (url: string, live: boolean) => void
+  onError: () => void
   sidebarOpen: boolean
 }
 
 type State = 'idle' | 'loading' | 'playing' | 'error'
 
-export default function Player({ channel, onLive, sidebarOpen }: Props) {
+export default function Player({ channel, onLive, onError, sidebarOpen }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const [state, setState] = useState<State>('idle')
@@ -63,7 +64,7 @@ export default function Player({ channel, onLive, sidebarOpen }: Props) {
     setCcTracks([])
     setCcOn(false)
 
-    const fail = () => { setState('error'); onLive(channel.url, false) }
+    const fail = () => { setState('error'); onLive(channel.url, false); onError() }
 
     if (Hls.isSupported()) {
       const hls = new Hls({ enableWorker: false })
@@ -137,7 +138,7 @@ export default function Player({ channel, onLive, sidebarOpen }: Props) {
             )}
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-[10px] font-mono text-white/30">CH {String(channel.number).padStart(3, '00')}</span>
+                <span className="text-[10px] font-mono text-white/30">CH {String(channel.number).padStart(3, '0')}</span>
                 {state === 'playing' && <span className="text-[10px] text-green-400 font-mono">● LIVE</span>}
                 {channel.language && <span className="text-[10px] text-white/20 font-mono">{channel.language}</span>}
               </div>

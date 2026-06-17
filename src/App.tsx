@@ -66,6 +66,8 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const loadIdRef = useRef(0)
   const lastIncludeKeyRef = useRef('')
+  const filteredChannelsRef = useRef<Channel[]>([])
+  const selectedUrlRef = useRef<string | null>(null)
 
   // Load reference data once
   useEffect(() => {
@@ -186,6 +188,17 @@ export default function App() {
     setChannels(prev => prev.map(c => c.url === url ? { ...c, is_live: live } : c))
   }, [])
 
+  // Always-current refs so the stable onStreamError callback never goes stale
+  filteredChannelsRef.current = filteredChannels
+  selectedUrlRef.current = selectedUrl
+
+  const onStreamError = useCallback(() => {
+    const list = filteredChannelsRef.current
+    const cur = list.findIndex(ch => ch.url === selectedUrlRef.current)
+    const next = list[cur + 1]
+    if (next) setSelectedUrl(next.url)
+  }, [])
+
   // Keyboard navigation
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -235,7 +248,7 @@ export default function App() {
         >
           {sidebarOpen ? '‹' : '›'}
         </button>
-        <Player channel={selectedChannel} onLive={markLive} sidebarOpen={sidebarOpen} />
+        <Player channel={selectedChannel} onLive={markLive} onError={onStreamError} sidebarOpen={sidebarOpen} />
       </div>
     </div>
   )
