@@ -93,6 +93,11 @@ export default function App() {
     window.history.replaceState(null, '', filtersToSearch(filters) || window.location.pathname)
   }, [filters])
 
+  // Push filters to server so /playlist.m3u stays current for TiviMate
+  useEffect(() => {
+    fetch('/api/filters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(filters) }).catch(() => {})
+  }, [filters])
+
   // Load reference data once
   useEffect(() => {
     fetch(`${IPTV}/api/countries.json`).then(r => r.json()).then(setCountries).catch(console.error)
@@ -244,8 +249,18 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-white overflow-hidden select-none">
-      <header className="flex items-center px-5 h-12 border-b border-white/5 bg-black/30 flex-shrink-0">
+      <header className="flex items-center px-5 h-12 border-b border-white/5 bg-black/30 flex-shrink-0 gap-3">
         <span className="font-bold tracking-tight">📺 Home TV</span>
+        <button
+          onClick={() => {
+            const url = `${window.location.protocol}//${window.location.hostname}:8000/playlist.m3u`
+            navigator.clipboard.writeText(url).catch(() => {})
+          }}
+          className="ml-auto text-[10px] font-mono text-white/25 hover:text-white/60 border border-white/10 hover:border-white/20 rounded px-2 py-1 transition-colors"
+          title="Copy TiviMate playlist URL"
+        >
+          📋 TiviMate URL
+        </button>
       </header>
 
       <div className="flex flex-1 overflow-hidden">

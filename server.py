@@ -8,71 +8,53 @@ import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from pydantic import BaseModel
 
-SETTINGS_FILE = Path("settings.json")
-_default_settings = {"country": "UA", "blacklisted_languages": []}
-_settings: dict = _default_settings.copy()
+FILTERS_FILE = Path("filters.json")
+IPTV = "https://iptv-org.github.io"
 
-_results: dict[str, dict[str, bool | None]] = {}
-_running: set[str] = set()
+_default_filters = [{"id": "default-live", "field": "live", "value": "true", "negate": False}]
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
 
 
-def _load() -> None:
-    global _settings
-    if SETTINGS_FILE.exists():
-        try:
-            _settings = {**_default_settings, **json.loads(SETTINGS_FILE.read_text())}
-        except Exception:
-            pass
-
-
-def _save() -> None:
-    SETTINGS_FILE.write_text(json.dumps(_settings, indent=2))
-
-
-async def probe(url: str) -> bool:
+def _load_filters() -> list:
     try:
-        async with httpx.AsyncClient(timeout=8, follow_redirects=True, headers=HEADERS) as c:
-            if ".m3u8" in url or ".ts" in url:
-                r = await c.get(url)
-                return r.status_code == 200 and b"#EXT" in r.content[:256]
-            r = await c.head(url)
-            if r.status_code == 405:
-                r = await c.get(url)
-            return r.status_code < 400
+        if FILTERS_FILE.exists():
+            return json.loads(FILTERS_FILE.read_text())
     except Exception:
-        return False
+        pass
+    return _default_filters.copy()
 
 
-async def run_validation(country: str) -> None:
-    code = country.upper()
-    if code in _running:
-        return
-    _running.add(code)
-    try:
-        async with httpx.AsyncClient(timeout=30) as c:
-            r = await c.get(f"https://iptv-org.github.io/iptv/countries/{code.lower()}.m3u")
-        urls = [l.strip() for l in r.text.splitlines() if l.strip().startswith("http")]
-        _results[code] = {u: None for u in urls}
+def _save_filters(filters: list) -> None:
+    FILTERS_FILE.write_text(json.dumps(filters))
 
-        sem = asyncio.Semaphore(15)
 
-        async def check(url: str) -> None:
-            async with sem:
-                _results[code][url] = await probe(url)
-
-        await asyncio.gather(*[check(u) for u in urls])
-    finally:
-        _running.discard(code)
+def _parse_m3u(text: str) -> list[dict]:
+    lines = text.splitlines()
+    channels = []
+    for i, line in enumerate(lines):
+        line = line.strip()
+        if not line.startswith("#EXTINF"):
+            continue
+        if i + 1 >= len(lines):
+            continue
+        url = lines[i + 1].strip()
+        if not url.startswith("http"):
+            continue
+        m = re.search(r'tvg-id="([^"]+)"', line)
+        tvg_id = m.group(1) if m else ""
+        base = tvg_id.split("@")[0]
+        suffix = base.split(".")[-1] if "." in base else ""
+        country = suffix.upper() if len(suffix) == 2 else None
+        cm = re.search(r'group-title="([^"]+)"', line)
+        category = cm.group(1) if cm else None
+        channels.append({"extinf": line, "url": url, "country": country, "category": category})
+    return channels
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    _load()
-    asyncio.create_task(run_validation(_settings["country"]))
     yield
 
 
@@ -80,75 +62,60 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
-@app.get("/settings")
-def get_settings() -> dict:
-    return _settings
+@app.get("/api/filters")
+def get_filters():
+    return _load_filters()
 
 
-class SettingsUpdate(BaseModel):
-    country: str | None = None
-    blacklisted_languages: list[str] | None = None
-
-
-@app.post("/settings")
-async def update_settings(body: SettingsUpdate) -> dict:
-    global _settings
-    if body.country is not None:
-        new_country = body.country.upper()
-        if new_country != _settings["country"]:
-            _settings["country"] = new_country
-            asyncio.create_task(run_validation(new_country))
-        else:
-            _settings["country"] = new_country
-    if body.blacklisted_languages is not None:
-        _settings["blacklisted_languages"] = body.blacklisted_languages
-    _save()
-    return _settings
-
-
-@app.get("/validate")
-async def validate(country: str = "UA") -> dict:
-    code = country.upper()
-    if code not in _results and code not in _running:
-        asyncio.create_task(run_validation(code))
-    return {
-        "results": _results.get(code, {}),
-        "running": code in _running,
-    }
+@app.post("/api/filters")
+def update_filters(filters: list):
+    _save_filters(filters)
+    return {"ok": True}
 
 
 @app.get("/playlist.m3u")
-async def playlist():
-    code = _settings["country"].upper()
-    blacklist = set(_settings.get("blacklisted_languages", []))
+async def get_playlist():
+    filters = _load_filters()
+    includes = [f for f in filters if not f["negate"] and f["field"] in ("country", "language")]
+
+    if not includes:
+        return Response("#EXTM3U\n", media_type="audio/x-mpegurl")
 
     async with httpx.AsyncClient(timeout=30, headers=HEADERS) as c:
-        r = await c.get(f"https://iptv-org.github.io/iptv/countries/{code.lower()}.m3u")
+        langs_r = await c.get(f"{IPTV}/api/languages.json")
+    lang_code = {l["name"]: l["code"] for l in langs_r.json()}
 
-    lines = r.text.splitlines()
-    out = ["#EXTM3U"]
-    i = 0
-    country_results = _results.get(code, {})
-    while i < len(lines):
-        line = lines[i].strip()
-        if line.startswith("#EXTINF") and i + 1 < len(lines):
-            url = lines[i + 1].strip()
-            if url.startswith("http"):
-                lang_match = re.search(r'tvg-language="([^"]*)"', line)
-                langs = [l.strip() for l in (lang_match.group(1) if lang_match else "").split(";") if l.strip()]
-                if blacklist and langs and any(l in blacklist for l in langs):
-                    i += 2
-                    continue
-                if country_results.get(url) is False:
-                    i += 2
-                    continue
-                out.append(line)
-                out.append(url)
-                i += 2
-                continue
-        i += 1
+    m3u_urls = []
+    for f in includes:
+        if f["field"] == "country":
+            m3u_urls.append(f"{IPTV}/iptv/countries/{f['value'].lower()}.m3u")
+        else:
+            code = lang_code.get(f["value"], f["value"].lower())
+            m3u_urls.append(f"{IPTV}/iptv/languages/{code}.m3u")
 
-    if code not in _results and code not in _running:
-        asyncio.create_task(run_validation(code))
+    async with httpx.AsyncClient(timeout=60, headers=HEADERS) as c:
+        responses = await asyncio.gather(*[c.get(u) for u in m3u_urls], return_exceptions=True)
 
-    return Response(content="\n".join(out), media_type="application/x-mpegURL")
+    seen = set()
+    channels = []
+    for r in responses:
+        if isinstance(r, Exception):
+            continue
+        for ch in _parse_m3u(r.text):
+            if ch["url"] not in seen:
+                seen.add(ch["url"])
+                channels.append(ch)
+
+    for f in filters:
+        if f["field"] == "country" and f["negate"]:
+            channels = [ch for ch in channels if not ch["country"] or ch["country"] != f["value"].upper()]
+        elif f["field"] == "category" and f["negate"]:
+            channels = [ch for ch in channels if ch["category"] != f["value"]]
+
+    lines = ["#EXTM3U"]
+    for ch in channels:
+        lines.append(ch["extinf"])
+        lines.append(ch["url"])
+
+    return Response("\n".join(lines), media_type="audio/x-mpegurl",
+                    headers={"Content-Disposition": 'inline; filename="playlist.m3u"'})
