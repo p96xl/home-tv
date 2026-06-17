@@ -240,7 +240,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-white overflow-hidden select-none">
-      <header className="flex items-center px-5 h-12 border-b border-white/5 bg-black/30 flex-shrink-0 gap-3">
+      <header className={`flex items-center px-5 h-12 border-b border-white/5 bg-black/30 flex-shrink-0 gap-3 overflow-hidden transition-all duration-300 ${sidebarOpen ? '' : '-mt-12 opacity-0'}`}>
         <span className="font-bold tracking-tight">📺 Home TV</span>
         <button
           onClick={pushSettings}
