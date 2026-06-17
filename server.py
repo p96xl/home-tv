@@ -3,7 +3,6 @@ import json
 import re
 from contextlib import asynccontextmanager
 from pathlib import Path
-from urllib.parse import urljoin
 
 import httpx
 from fastapi import FastAPI, Request
@@ -16,6 +15,7 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
 
 _default_filters = [{"id": "default-live", "field": "live", "value": "true", "negate": False}]
 _alive: set[str] | None = None  # None = probe not yet run
+_probed: set[str] | None = None  # urls the last probe actually checked (subset depends on server's filters.json)
 _probe_task: asyncio.Task | None = None
 
 
@@ -94,46 +94,44 @@ async def _fetch_all_channels(filters: list) -> list[dict]:
     return channels
 
 
-async def _probe_hls(c: httpx.AsyncClient, url: str, depth: int = 0) -> bool:
-    """Walk a master playlist down to a variant/segment and confirm that's reachable too —
-    a master manifest can return 200 while the actual stream behind it is geo-blocked or dead."""
-    r = await c.get(url)
-    if r.status_code != 200 or b"#EXT" not in r.content[:256]:
-        return False
-    next_url = next((urljoin(url, line.strip()) for line in r.text.splitlines()
-                      if line.strip() and not line.startswith("#")), None)
-    if next_url is None:
-        return False
-    if depth == 0 and next_url.endswith(".m3u8"):
-        return await _probe_hls(c, next_url, depth=1)
-    async with c.stream("GET", next_url) as seg:
-        return seg.status_code < 400
+PROBE_DURATION = 4  # seconds of actual video to sample for blank/black-screen detection
+PROBE_TIMEOUT = 12  # seconds — generous since this only runs hourly in the background
 
 
 async def _probe(url: str) -> bool:
+    """Actually decode a few seconds of the stream with ffmpeg, the same way a real player
+    would, instead of guessing from HTTP status codes — a manifest can return 200 while the
+    real stream behind it is geo-blocked, expired, or dead. Also runs blackdetect over the
+    sample: a stream can decode fine and still just be a frozen black/blank screen."""
     try:
-        async with httpx.AsyncClient(timeout=6, follow_redirects=True, headers=HEADERS) as c:
-            if ".m3u8" in url:
-                return await _probe_hls(c, url)
-            if ".ts" in url:
-                r = await c.get(url)
-                return r.status_code == 200 and b"#EXT" in r.content[:256]
-            r = await c.head(url)
-            if r.status_code == 405:
-                r = await c.get(url)
-            return r.status_code < 400
+        proc = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-v", "info", "-nostats", "-user_agent", HEADERS["User-Agent"],
+            "-t", str(PROBE_DURATION), "-i", url,
+            "-an", "-vf", "blackdetect=d=1:pic_th=0.98", "-f", "null", "-",
+            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            _, stderr = await asyncio.wait_for(proc.communicate(), timeout=PROBE_TIMEOUT)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            return False
+        if proc.returncode != 0:
+            return False
+        black = sum(float(d) for d in re.findall(rb"black_duration:([\d.]+)", stderr))
+        return black < PROBE_DURATION * 0.8
     except Exception:
         return False
 
 
 async def _probe_loop() -> None:
-    global _alive
+    global _alive, _probed
     while True:
         try:
             filters = _load_filters()
             channels = await _fetch_all_channels(filters)
             if channels:
-                sem = asyncio.Semaphore(30)
+                sem = asyncio.Semaphore(12)  # each check spawns an ffprobe subprocess — keep it modest
 
                 async def check(url: str) -> tuple[str, bool]:
                     async with sem:
@@ -147,9 +145,11 @@ async def _probe_loop() -> None:
                         if ok:
                             new_alive.add(url)
                 _alive = new_alive
+                _probed = {ch["url"] for ch in channels}
                 print(f"Alive check complete: {len(_alive)}/{len(channels)} channels alive")
             else:
                 _alive = set()
+                _probed = set()
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -158,8 +158,9 @@ async def _probe_loop() -> None:
 
 
 def _restart_probe() -> None:
-    global _probe_task, _alive
+    global _probe_task, _alive, _probed
     _alive = None  # serve all channels until new probe finishes
+    _probed = None
     if _probe_task and not _probe_task.done():
         _probe_task.cancel()
     _probe_task = asyncio.create_task(_probe_loop())
@@ -192,6 +193,16 @@ async def update_filters(request: Request):
 @app.get("/api/probe-status")
 def probe_status():
     return {"alive": len(_alive) if _alive is not None else None, "running": _alive is None}
+
+
+@app.get("/api/alive")
+def get_alive():
+    # "probed" = urls the last probe actually checked (only matches the session's channels if
+    # its filters were pushed to the server); "alive" = the subset that passed.
+    return {
+        "probed": sorted(_probed) if _probed is not None else None,
+        "alive": sorted(_alive) if _alive is not None else None,
+    }
 
 
 @app.get("/playlist.m3u")

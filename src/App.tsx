@@ -71,6 +71,7 @@ export default function App() {
   const filteredChannelsRef = useRef<typeof filteredChannels>([])
   const selectedUrlRef = useRef<string | null>(null)
   const [pushState, setPushState] = useState<'idle' | 'pushing' | 'done' | 'error'>('idle')
+  const [aliveInfo, setAliveInfo] = useState<{ probed: Set<string>; alive: Set<string> } | null>(null)
 
   // Load filters from server on mount — this session's starting point only.
   // Filters then stay local until the user explicitly pushes them back.
@@ -80,6 +81,32 @@ export default function App() {
       .then(setFilters)
       .catch(() => setFilters(DEFAULT_FILTERS))
   }, [])
+
+  // Server's deep-probe results (what the uvicorn alive-check actually found) — fetched once
+  // so the channel dots can be cross-checked against real playback instead of trusting either alone.
+  useEffect(() => {
+    fetch('/api/alive')
+      .then(r => r.json())
+      .then(({ probed, alive }: { probed: string[] | null; alive: string[] | null }) => {
+        if (probed && alive) setAliveInfo({ probed: new Set(probed), alive: new Set(alive) })
+      })
+      .catch(() => {})
+  }, [])
+
+  // Seed is_live from the probe for channels this session hasn't actually tried playing yet.
+  // Channels outside the server's last-probed set (filters not pushed) are left untouched.
+  useEffect(() => {
+    if (!aliveInfo) return
+    setChannels(prev => {
+      let changed = false
+      const next = prev.map(ch => {
+        if (ch.is_live !== null || !aliveInfo.probed.has(ch.url)) return ch
+        changed = true
+        return { ...ch, is_live: aliveInfo.alive.has(ch.url) }
+      })
+      return changed ? next : prev
+    })
+  }, [channels, aliveInfo])
 
   const pushSettings = useCallback(() => {
     setPushState('pushing')
