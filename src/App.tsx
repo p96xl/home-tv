@@ -70,20 +70,22 @@ export default function App() {
   const lastIncludeKeyRef = useRef('')
   const filteredChannelsRef = useRef<typeof filteredChannels>([])
   const selectedUrlRef = useRef<string | null>(null)
-  const filtersReadyRef = useRef(false)
+  const [pushState, setPushState] = useState<'idle' | 'pushing' | 'done' | 'error'>('idle')
 
-  // Load filters from server on mount — server is the source of truth
+  // Load filters from server on mount — this session's starting point only.
+  // Filters then stay local until the user explicitly pushes them back.
   useEffect(() => {
     fetch('/api/filters')
       .then(r => r.json())
-      .then(f => { filtersReadyRef.current = true; setFilters(f) })
-      .catch(() => { filtersReadyRef.current = true; setFilters(DEFAULT_FILTERS) })
+      .then(setFilters)
+      .catch(() => setFilters(DEFAULT_FILTERS))
   }, [])
 
-  // Push to server on change (skip until initial load from server completes)
-  useEffect(() => {
-    if (!filtersReadyRef.current) return
-    fetch('/api/filters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(filters) }).catch(() => {})
+  const pushSettings = useCallback(() => {
+    setPushState('pushing')
+    fetch('/api/filters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(filters) })
+      .then(() => { setPushState('done'); setTimeout(() => setPushState('idle'), 1500) })
+      .catch(() => { setPushState('error'); setTimeout(() => setPushState('idle'), 1500) })
   }, [filters])
 
   // Load reference data once
@@ -216,35 +218,43 @@ export default function App() {
     if (next) setSelectedUrl(next.url)
   }, [])
 
-  // Keyboard navigation
+  // Keyboard navigation — reads refs, not closured state, so it always sees the current list/selection
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!filteredChannels.length) return
-      const cur = filteredChannels.findIndex(ch => ch.url === selectedUrl)
+      const list = filteredChannelsRef.current
+      if (!list.length) return
+      const cur = list.findIndex(ch => ch.url === selectedUrlRef.current)
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
         e.preventDefault()
-        const next = filteredChannels[Math.min(cur + 1, filteredChannels.length - 1)]
+        const next = list[Math.min(cur + 1, list.length - 1)]
         if (next) setSelectedUrl(next.url)
       } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
         e.preventDefault()
-        const next = filteredChannels[Math.max(cur - 1, 0)]
+        const next = list[Math.max(cur - 1, 0)]
         if (next) setSelectedUrl(next.url)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [filteredChannels.length])
+  }, [])
 
   return (
     <div className="flex flex-col h-screen bg-zinc-950 text-white overflow-hidden select-none">
       <header className="flex items-center px-5 h-12 border-b border-white/5 bg-black/30 flex-shrink-0 gap-3">
         <span className="font-bold tracking-tight">📺 Home TV</span>
         <button
+          onClick={pushSettings}
+          className="ml-auto text-[10px] font-mono text-white/25 hover:text-white/60 border border-white/10 hover:border-white/20 rounded px-2 py-1 transition-colors"
+          title="Save this session's filters as the household default for new sessions"
+        >
+          {pushState === 'pushing' ? '⏳ Pushing…' : pushState === 'done' ? '✅ Pushed' : pushState === 'error' ? '⚠️ Failed' : '⬆️ Push Settings to Server'}
+        </button>
+        <button
           onClick={() => {
             const url = `${window.location.protocol}//${window.location.hostname}:8000/playlist.m3u`
             navigator.clipboard.writeText(url).catch(() => {})
           }}
-          className="ml-auto text-[10px] font-mono text-white/25 hover:text-white/60 border border-white/10 hover:border-white/20 rounded px-2 py-1 transition-colors"
+          className="text-[10px] font-mono text-white/25 hover:text-white/60 border border-white/10 hover:border-white/20 rounded px-2 py-1 transition-colors"
           title="Copy TiviMate playlist URL"
         >
           📋 TiviMate URL
