@@ -9,7 +9,9 @@ body { margin: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
 
-@keyframes osd-fade {
-  0%, 60% { opacity: 1; }
+@keyframes banner-flash {
+  0%   { opacity: 0; }
+  12%  { opacity: 1; }
+  70%  { opacity: 1; }
   100% { opacity: 0; }
 }

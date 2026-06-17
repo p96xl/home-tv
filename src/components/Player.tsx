@@ -14,16 +14,33 @@ export default function Player({ channel, onLive, sidebarOpen }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const [state, setState] = useState<State>('idle')
-  const [osdKey, setOsdKey] = useState<number | null>(null)
-  const osdTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [bannerKey, setBannerKey] = useState<number | null>(null)
+  const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [ccTracks, setCcTracks] = useState<{id: number, name: string}[]>([])
+  const [ccOn, setCcOn] = useState(false)
 
+  // Flash bottom banner on channel change when in full-page mode
   useEffect(() => {
     if (!channel || sidebarOpen) return
-    setOsdKey(Date.now())
-    if (osdTimer.current) clearTimeout(osdTimer.current)
-    osdTimer.current = setTimeout(() => setOsdKey(null), 3100)
-    return () => { if (osdTimer.current) clearTimeout(osdTimer.current) }
+    setBannerKey(Date.now())
+    if (bannerTimer.current) clearTimeout(bannerTimer.current)
+    bannerTimer.current = setTimeout(() => setBannerKey(null), 4100)
+    return () => { if (bannerTimer.current) clearTimeout(bannerTimer.current) }
   }, [sidebarOpen, channel?.name])
+
+  const toggleCC = () => {
+    const next = !ccOn
+    setCcOn(next)
+    if (hlsRef.current) {
+      hlsRef.current.subtitleTrack = next ? 0 : -1
+    } else {
+      const video = videoRef.current
+      if (!video) return
+      Array.from(video.textTracks).forEach(t => {
+        if (t.kind === 'subtitles' || t.kind === 'captions') t.mode = next ? 'showing' : 'hidden'
+      })
+    }
+  }
 
   const toggleFullscreen = () => {
     const el = videoRef.current
@@ -43,6 +60,8 @@ export default function Player({ channel, onLive, sidebarOpen }: Props) {
 
     hlsRef.current?.destroy()
     setState('loading')
+    setCcTracks([])
+    setCcOn(false)
 
     const fail = () => { setState('error'); onLive(channel.url, false) }
 
@@ -56,10 +75,18 @@ export default function Player({ channel, onLive, sidebarOpen }: Props) {
         setState('playing')
         onLive(channel.url, true)
       })
+      hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, (_, data) => {
+        setCcTracks(data.subtitleTracks.map((t: any) => ({ id: t.id, name: t.name || t.lang || `CC ${t.id + 1}` })))
+      })
       hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) fail() })
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = channel.url
-      video.oncanplay = () => { setState('playing'); onLive(channel.url, true) }
+      video.oncanplay = () => {
+        setState('playing')
+        onLive(channel.url, true)
+        const tracks = Array.from(video.textTracks).filter(t => t.kind === 'subtitles' || t.kind === 'captions')
+        if (tracks.length) setCcTracks(tracks.map((t, i) => ({ id: i, name: t.label || t.language || `CC ${i + 1}` })))
+      }
       video.onerror = fail
       video.play().catch(() => {})
     } else {
@@ -80,6 +107,8 @@ export default function Player({ channel, onLive, sidebarOpen }: Props) {
     )
   }
 
+  const showBanner = state !== 'idle' && (sidebarOpen || bannerKey !== null)
+
   return (
     <div className="flex-1 relative bg-black overflow-hidden">
       <video ref={videoRef} className="w-full h-full object-contain" playsInline />
@@ -96,31 +125,19 @@ export default function Player({ channel, onLive, sidebarOpen }: Props) {
         </div>
       )}
 
-      {osdKey !== null && channel && (
+      {showBanner && (
         <div
-          key={osdKey}
-          className="absolute top-6 inset-x-0 flex justify-center pointer-events-none"
-          style={{ animation: 'osd-fade 3s forwards' }}
+          key={!sidebarOpen ? bannerKey ?? undefined : undefined}
+          style={!sidebarOpen ? { animation: 'banner-flash 4s forwards' } : undefined}
+          className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-10 pointer-events-none"
         >
-          <div
-            className="bg-black/70 text-amber-100 font-mono px-5 py-2 rounded-sm text-center"
-            style={{ textShadow: '0 0 14px rgba(251,191,36,0.6)' }}
-          >
-            <div className="text-[10px] opacity-40 tracking-[0.3em] uppercase">CH {String(channel.number).padStart(3, '0')}</div>
-            <div className="text-base font-bold tracking-wider">{channel.name}</div>
-          </div>
-        </div>
-      )}
-
-      {state !== 'idle' && sidebarOpen && (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 pt-10 pointer-events-none">
           <div className="flex items-end gap-3">
             {channel.logo && (
               <img src={channel.logo} alt="" className="w-9 h-9 object-contain flex-shrink-0" />
             )}
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <span className="text-[10px] font-mono text-white/30">CH {String(channel.number).padStart(3, '0')}</span>
+                <span className="text-[10px] font-mono text-white/30">CH {String(channel.number).padStart(3, '00')}</span>
                 {state === 'playing' && <span className="text-[10px] text-green-400 font-mono">● LIVE</span>}
                 {channel.language && <span className="text-[10px] text-white/20 font-mono">{channel.language}</span>}
               </div>
@@ -128,6 +145,18 @@ export default function Player({ channel, onLive, sidebarOpen }: Props) {
             </div>
           </div>
         </div>
+      )}
+
+      {ccTracks.length > 0 && (
+        <button
+          onClick={toggleCC}
+          className={`absolute bottom-4 right-12 px-1.5 py-1 rounded text-[11px] font-mono font-bold transition-colors pointer-events-auto ${
+            ccOn ? 'bg-white/20 text-white' : 'bg-black/40 text-white/30 hover:text-white/70'
+          }`}
+          title={ccOn ? 'Hide captions' : 'Show captions'}
+        >
+          CC
+        </button>
       )}
 
       <button
