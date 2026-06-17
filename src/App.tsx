@@ -1,9 +1,28 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import type { Channel, Country, Filter } from './types'
+import type { Channel, Country, Filter, FilterField } from './types'
 import ChannelList from './components/ChannelList'
 import Player from './components/Player'
 
 const IPTV = 'https://iptv-org.github.io'
+
+const DEFAULT_FILTERS: Filter[] = [{ id: 'default-live', field: 'live', value: 'true', negate: false }]
+
+function filtersFromUrl(): Filter[] {
+  const fs = new URLSearchParams(window.location.search).getAll('f')
+  if (!fs.length) return DEFAULT_FILTERS
+  return fs.map((s, i) => {
+    const negate = s.startsWith('!')
+    const rest = negate ? s.slice(1) : s
+    const colon = rest.indexOf(':')
+    return { id: `url-${i}`, field: rest.slice(0, colon) as FilterField, value: rest.slice(colon + 1), negate }
+  })
+}
+
+function filtersToSearch(filters: Filter[]): string {
+  const p = new URLSearchParams()
+  for (const f of filters) p.append('f', `${f.negate ? '!' : ''}${f.field}:${f.value}`)
+  return p.toString() ? '?' + p.toString() : ''
+}
 
 // languages.json shared fetch (~269KB, cached)
 let _langsP: Promise<{ code: string; name: string }[]> | null = null
@@ -61,13 +80,18 @@ export default function App() {
   const [languages, setLanguages] = useState<{ code: string; name: string }[]>([])
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [filters, setFilters] = useState<Filter[]>([{ id: 'default-live', field: 'live', value: 'true', negate: false }])
+  const [filters, setFilters] = useState<Filter[]>(filtersFromUrl)
   const [loading, setLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const loadIdRef = useRef(0)
   const lastIncludeKeyRef = useRef('')
   const filteredChannelsRef = useRef<Channel[]>([])
   const selectedUrlRef = useRef<string | null>(null)
+
+  // Keep URL in sync with filters so bookmarks restore state
+  useEffect(() => {
+    window.history.replaceState(null, '', filtersToSearch(filters) || window.location.pathname)
+  }, [filters])
 
   // Load reference data once
   useEffect(() => {
