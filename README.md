@@ -26,7 +26,7 @@ npm install
 
 **Start**
 ```bash
-uvicorn server:app --port 8000
+uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
 On startup the validator probes all streams for the default country (UA) concurrently. The frontend polls `/validate` every 4 seconds and updates status dots as results arrive. If the backend isn't running, the app still works — streams just start gray and turn green/red as you actually watch them.
