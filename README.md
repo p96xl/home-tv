@@ -52,6 +52,9 @@ chmod +x start.sh
 
 Get a Chromecast with Google TV, install an M3U streamer like Tivimate, and paste the M3U URL from Tivimate URL button on the top right.
 
+To get an m3u streamer to work like m3u-ip.tv you'll need to do http://YOUR-SERVER:8000/playlist.m3u?proxy=true
+For Tivimate its just http://YOUR-SERVER:8000/playlist.m3u
+
 ## Keyboard shortcuts
 
 | Key | Action |
