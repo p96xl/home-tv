@@ -6,3 +6,5 @@ logs/
 filters.json
 .pid.api
 .pid.ui
+vite.config.ts
+
