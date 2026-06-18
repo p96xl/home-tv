@@ -77,7 +77,7 @@ async def build_channels() -> list[dict]:
     chan_logo: dict[str, str] = {}
     for lg in raw_logos:
         ch = lg.get("channel")
-        if ch and (lg.get("in_use") or ch not in chan_logo):
+        if ch and (lg.get("in_use") or ch not in chan_logo):  
             chan_logo[ch] = lg["url"]
 
     channels = []
@@ -182,10 +182,8 @@ def _rewrite_m3u8(text: str, base_url: str) -> str:
     for line in text.splitlines():
         stripped = line.strip()
         if stripped.startswith("#"):
-            # Rewrite URI=\"...\" attributes on tags (#EXT-X-KEY, #EXT-X-MAP, etc.)
             line = re.sub(r'URI="([^"]+)"', lambda m: f'URI="{abs_proxy(m.group(1))}"', stripped)
         elif stripped:
-            # Plain URL line (segment or sub-playlist)
             line = abs_proxy(stripped)
         out.append(line)
     return "\n".join(out)
@@ -211,7 +209,6 @@ async def proxy(url: str):
     is_playlist = url.split("?")[0].lower().endswith((".m3u8", ".m3u"))
 
     if is_playlist:
-        # Playlists need full buffering to rewrite URLs before returning
         try:
             async with httpx.AsyncClient(timeout=30, headers=HEADERS, follow_redirects=True) as c:
                 r = await c.get(url)
@@ -223,7 +220,6 @@ async def proxy(url: str):
                             media_type="application/vnd.apple.mpegurl")
         return Response(r.content, media_type=ct or "application/octet-stream")
 
-    # Segments: stream directly — CDN mid-stream drops become a clean EOF instead of a crash
     async def _stream():
         try:
             async with httpx.AsyncClient(timeout=30, headers=HEADERS, follow_redirects=True) as c:
@@ -231,7 +227,7 @@ async def proxy(url: str):
                     async for chunk in r.aiter_bytes(chunk_size=65536):
                         yield chunk
         except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError):
-            return  # hls.js retries truncated segments automatically
+            return
 
     return StreamingResponse(_stream(), media_type="video/mp2t")
 
@@ -242,8 +238,9 @@ async def get_channels():
 
 
 @app.get("/playlist.m3u")
-async def get_playlist():
+async def get_playlist(request: Request, proxy: bool = False):
     channels = apply_filters(await build_channels(), _load_filters())
+    base = str(request.base_url).rstrip("/")
     lines = ["#EXTM3U"]
     for ch in channels:
         logo = f' tvg-logo="{ch["logo"]}"' if ch.get("logo") else ""
@@ -253,8 +250,9 @@ async def get_playlist():
         name = f'{ch["name"]} [{hd}]' if hd else ch["name"]
         # One entry per stream URL — players that understand tvg-id group them and try each in order
         for url in [ch["url"]] + (ch.get("alt_urls") or []):
+            stream = f"{base}/proxy?url={urllib.parse.quote(url, safe='')}" if proxy else url
             lines.append(f'#EXTINF:-1 tvg-id="{ch["id"]}"{logo}{lang}{cat},{name}')
-            lines.append(url)
+            lines.append(stream)
     return Response("\n".join(lines), media_type="audio/x-mpegurl",
                     headers={"Content-Disposition": 'inline; filename="playlist.m3u"'})
 

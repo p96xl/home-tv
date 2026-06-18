@@ -27,8 +27,6 @@ export default function App() {
   const selectedUrlRef = useRef<string | null>(null)
   const [pushState, setPushState] = useState<'idle' | 'pushing' | 'done' | 'error'>('idle')
 
-  // Load filters from server on mount — this session's starting point only.
-  // Filters then stay local until the user explicitly pushes them back.
   useEffect(() => {
     fetch('/api/filters')
       .then(r => r.json())
@@ -43,13 +41,11 @@ export default function App() {
       .catch(() => { setPushState('error'); setTimeout(() => setPushState('idle'), 1500) })
   }, [filters])
 
-  // Load reference data once
   useEffect(() => {
     fetch(`${IPTV}/api/countries.json`).then(r => r.json()).then(setCountries).catch(console.error)
     fetchLangs().then(setLanguages).catch(console.error)
   }, [])
 
-  // Load all alive channels once on mount (server-side JSON join, cached 6h)
   useEffect(() => {
     setLoading(true)
     fetch('/api/channels')
@@ -66,7 +62,6 @@ export default function App() {
     setFilters(prev => prev.filter(f => f.id !== id))
   }, [])
 
-  // Apply all filters client-side: includes (OR within field, AND across fields) then excludes
   const filteredChannels = useMemo(() => {
     let result = channels
 
@@ -128,14 +123,11 @@ export default function App() {
     return result
   }, [channels, search, filters])
 
-  // Auto-select first channel in the filtered list when nothing is playing
   useEffect(() => {
     if (filteredChannels.length && !selectedUrl) setSelectedUrl(filteredChannels[0].url)
   }, [filteredChannels.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Derive index into filtered list (for sidebar highlight; -1 = filtered out)
   const selectedIdx = filteredChannels.findIndex(ch => ch.url === selectedUrl)
-  // Always play the selected channel regardless of search filter
   const selectedChannel = channels.find(ch => ch.url === selectedUrl) ?? null
 
   const availableCategories = useMemo(() =>
@@ -152,7 +144,6 @@ export default function App() {
     setChannels(prev => prev.map(c => c.url === url ? { ...c, is_live: live } : c))
   }, [])
 
-  // Always-current refs so the stable onStreamError callback never goes stale
   filteredChannelsRef.current = filteredChannels
   selectedUrlRef.current = selectedUrl
 
@@ -163,7 +154,6 @@ export default function App() {
     if (next) setSelectedUrl(next.url)
   }, [])
 
-  // Keyboard navigation — reads refs, not closured state, so it always sees the current list/selection
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const list = filteredChannelsRef.current
@@ -200,9 +190,19 @@ export default function App() {
             navigator.clipboard.writeText(url).catch(() => {})
           }}
           className="text-[10px] font-mono text-white/25 hover:text-white/60 border border-white/10 hover:border-white/20 rounded px-2 py-1 transition-colors"
-          title="Copy TiviMate playlist URL"
+          title="Copy TiviMate playlist URL (raw stream URLs, for native apps)"
         >
           📋 TiviMate URL
+        </button>
+        <button
+          onClick={() => {
+            const url = `${window.location.protocol}//${window.location.hostname}:8000/playlist.m3u?proxy=true`
+            navigator.clipboard.writeText(url).catch(() => {})
+          }}
+          className="text-[10px] font-mono text-white/25 hover:text-white/60 border border-white/10 hover:border-white/20 rounded px-2 py-1 transition-colors"
+          title="Copy proxied playlist URL (streams routed through this server — use for browser-based players)"
+        >
+          📋 Browser URL
         </button>
       </header>
 
