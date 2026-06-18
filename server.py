@@ -2,22 +2,24 @@ from fastapi import FastAPI, Request
 import asyncio
 import json
 import re
-from contextlib import asynccontextmanager
+import time
+import urllib.parse
 from pathlib import Path
+from collections import defaultdict
 
 import httpx
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 
 FILTERS_FILE = Path("filters.json")
 IPTV = "https://iptv-org.github.io"
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
+CACHE_TTL = 6 * 3600  # 6 hours — iptv-org data changes slowly
 
-_default_filters = [{"id": "default-live", "field": "live", "value": "true", "negate": False}]
-_alive: set[str] | None = None  # None = probe not yet run
-_probed: set[str] | None = None  # urls the last probe actually checked (subset depends on server's filters.json)
-_probe_task: asyncio.Task | None = None
+_default_filters: list = []
+_channels_cache: list | None = None
+_cache_ts: float = 0.0
 
 
 def _load_filters() -> list:
@@ -33,149 +35,146 @@ def _save_filters(filters: list) -> None:
     FILTERS_FILE.write_text(json.dumps(filters))
 
 
-def _parse_m3u(text: str) -> list[dict]:
-    lines = text.splitlines()
-    channels = []
-    for i, line in enumerate(lines):
-        line = line.strip()
-        if not line.startswith("#EXTINF"):
-            continue
-        if i + 1 >= len(lines):
-            continue
-        url = lines[i + 1].strip()
-        if not url.startswith("http"):
-            continue
-        m = re.search(r'tvg-id="([^"]+)"', line)
-        tvg_id = m.group(1) if m else ""
-        base = tvg_id.split("@")[0]
-        suffix = base.split(".")[-1] if "." in base else ""
-        country = suffix.upper() if len(suffix) == 2 else None
-        cm = re.search(r'group-title="([^"]+)"', line)
-        category = cm.group(1) if cm else None
-        channels.append({"extinf": line, "url": url, "country": country, "category": category})
-    return channels
-
-
-async def _fetch_all_channels(filters: list) -> list[dict]:
-    includes = [f for f in filters if not f["negate"] and f["field"] in ("country", "language")]
-    if not includes:
-        return []
-
-    async with httpx.AsyncClient(timeout=30, headers=HEADERS) as c:
-        langs_r = await c.get(f"{IPTV}/api/languages.json")
-    lang_code = {l["name"]: l["code"] for l in langs_r.json()}
-
-    m3u_urls = []
-    for f in includes:
-        if f["field"] == "country":
-            m3u_urls.append(f"{IPTV}/iptv/countries/{f['value'].lower()}.m3u")
-        else:
-            code = lang_code.get(f["value"], f["value"].lower())
-            m3u_urls.append(f"{IPTV}/iptv/languages/{code}.m3u")
+async def build_channels() -> list[dict]:
+    """Fetch iptv-org API JSON, join them, return every non-closed channel that has ≥1 stream.
+    ponytail: in-memory TTL cache, no persistence — fine for a single-process household server."""
+    global _channels_cache, _cache_ts
+    if _channels_cache is not None and time.time() - _cache_ts < CACHE_TTL:
+        return _channels_cache
 
     async with httpx.AsyncClient(timeout=60, headers=HEADERS) as c:
-        responses = await asyncio.gather(*[c.get(u) for u in m3u_urls], return_exceptions=True)
+        results = await asyncio.gather(
+            c.get(f"{IPTV}/api/channels.json"),
+            c.get(f"{IPTV}/api/streams.json"),
+            c.get(f"{IPTV}/api/feeds.json"),
+            c.get(f"{IPTV}/api/languages.json"),
+            c.get(f"{IPTV}/api/logos.json"),
+            c.get(f"{IPTV}/api/categories.json"),
+        )
 
-    seen: set[str] = set()
+    raw_channels, raw_streams, raw_feeds, raw_langs, raw_logos, raw_cats = [r.json() for r in results]
+
+    lang_name = {l["code"]: l["name"] for l in raw_langs}
+    cat_name = {c["id"]: c["name"] for c in raw_cats}
+
+    # Union language names across all feeds for each channel
+    chan_langs: dict[str, set[str]] = defaultdict(set)
+    for f in raw_feeds:
+        for code in (f.get("languages") or []):
+            chan_langs[f["channel"]].add(lang_name.get(code, code))
+
+    # All stream URLs per channel (preserve order, deduplicate)
+    chan_urls: dict[str, list[str]] = defaultdict(list)
+    chan_url_seen: dict[str, set[str]] = defaultdict(set)
+    for s in raw_streams:
+        ch = s.get("channel")
+        url = s.get("url")
+        if ch and url and url not in chan_url_seen[ch]:
+            chan_urls[ch].append(url)
+            chan_url_seen[ch].add(url)
+
+    # Best logo per channel (prefer in_use=true)
+    chan_logo: dict[str, str] = {}
+    for lg in raw_logos:
+        ch = lg.get("channel")
+        if ch and (lg.get("in_use") or ch not in chan_logo):
+            chan_logo[ch] = lg["url"]
+
     channels = []
-    for r in responses:
-        if isinstance(r, Exception):
+    for ch in raw_channels:
+        if ch.get("closed"):  # closed = date string when closed, absent/empty when open
             continue
-        for ch in _parse_m3u(r.text):
-            if ch["url"] not in seen:
-                seen.add(ch["url"])
-                channels.append(ch)
+        cid = ch["id"]
+        urls = chan_urls.get(cid, [])
+        if not urls:
+            continue
+        langs = chan_langs.get(cid, set())
+        cats = [cat_name.get(c, c) for c in (ch.get("categories") or [])]
+        channels.append({
+            "id": cid,
+            "name": ch["name"],
+            "logo": chan_logo.get(cid),
+            "url": urls[0],
+            "alt_urls": urls[1:],
+            "number": len(channels) + 1,
+            "language": ";".join(sorted(langs)) if langs else None,
+            "category": ";".join(cats) if cats else None,
+            "country": ch.get("country") or None,
+            "is_live": None,
+        })
 
-    for f in filters:
-        if f["field"] == "country" and f["negate"]:
-            channels = [ch for ch in channels if not ch["country"] or ch["country"] != f["value"].upper()]
-        elif f["field"] == "category" and f["negate"]:
-            channels = [ch for ch in channels if ch["category"] != f["value"]]
-
+    _channels_cache = channels
+    _cache_ts = time.time()
     return channels
 
 
-PROBE_DURATION = 4  # seconds of actual video to sample for blank/black-screen detection
-PROBE_TIMEOUT = 12  # seconds — generous since this only runs hourly in the background
+def apply_filters(channels: list[dict], filters: list[dict]) -> list[dict]:
+    """Include/exclude filtering over built channel dicts.
+    Includes: OR within a field, AND across fields. Excludes always remove."""
+    includes: dict[str, list[str]] = defaultdict(list)
+    excludes: list[dict] = []
+    for f in filters:
+        if f["negate"]:
+            excludes.append(f)
+        else:
+            includes[f["field"]].append(f["value"])
+
+    result = channels
+
+    for field, values in includes.items():
+        if field == "country":
+            vset = {v.upper() for v in values}
+            result = [ch for ch in result if ch.get("country") in vset]
+        elif field == "language":
+            vset = set(values)
+            result = [ch for ch in result
+                      if ch.get("language") and vset & {l.strip() for l in ch["language"].split(";")}
+]
+        elif field == "category":
+            vset = set(values)
+            result = [ch for ch in result
+                      if ch.get("category") and vset & {c.strip() for c in ch["category"].split(";")}
+]
+
+    for f in excludes:
+        field, value = f["field"], f["value"]
+        if field == "country":
+            result = [ch for ch in result if ch.get("country") != value.upper()]
+        elif field == "language":
+            result = [ch for ch in result
+                      if not ch.get("language") or value not in {l.strip() for l in ch["language"].split(";")}
+]
+        elif field == "category":
+            result = [ch for ch in result
+                      if not ch.get("category") or value not in {c.strip() for c in ch["category"].split(";")}
+]
+
+    return result
 
 
-async def _probe(url: str) -> bool:
-    """Actually decode a few seconds of the stream with ffmpeg, the same way a real player
-    would, instead of guessing from HTTP status codes — a manifest can return 200 while the
-    real stream behind it is geo-blocked, expired, or dead. Also runs blackdetect over the
-    sample: a stream can decode fine and still just be a frozen black/blank screen."""
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            "ffmpeg", "-v", "info", "-nostats", "-user_agent", HEADERS["User-Agent"],
-            "-t", str(PROBE_DURATION), "-i", url,
-            "-an", "-vf", "blackdetect=d=1:pic_th=0.98", "-f", "null", "-",
-            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
-        )
-        try:
-            _, stderr = await asyncio.wait_for(proc.communicate(), timeout=PROBE_TIMEOUT)
-        except asyncio.TimeoutError:
-            proc.kill()
-            await proc.wait()
-            return False
-        if proc.returncode != 0:
-            return False
-        black = sum(float(d) for d in re.findall(rb"black_duration:([\d.]+)", stderr))
-        return black < PROBE_DURATION * 0.8
-    except Exception:
-        return False
+def _proxy_url(url: str) -> str:
+    return f"/proxy?url={urllib.parse.quote(url, safe='')}"
 
 
-async def _probe_loop() -> None:
-    global _alive, _probed
-    while True:
-        try:
-            filters = _load_filters()
-            channels = await _fetch_all_channels(filters)
-            if channels:
-                sem = asyncio.Semaphore(12)  # each check spawns an ffprobe subprocess — keep it modest
+def _rewrite_m3u8(text: str, base_url: str) -> str:
+    """Rewrite absolute and relative URLs in an m3u8 playlist to route through /proxy."""
+    def abs_proxy(uri: str) -> str:
+        return _proxy_url(urllib.parse.urljoin(base_url, uri))
 
-                async def check(url: str) -> tuple[str, bool]:
-                    async with sem:
-                        return url, await _probe(url)
-
-                results = await asyncio.gather(*[check(ch["url"]) for ch in channels], return_exceptions=True)
-                new_alive: set[str] = set()
-                for result in results:
-                    if not isinstance(result, Exception):
-                        url, ok = result
-                        if ok:
-                            new_alive.add(url)
-                _alive = new_alive
-                _probed = {ch["url"] for ch in channels}
-                print(f"Alive check complete: {len(_alive)}/{len(channels)} channels alive")
-            else:
-                _alive = set()
-                _probed = set()
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            print(f"Probe error: {e}")
-        await asyncio.sleep(3600)
+    out = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            # Rewrite URI="..." attributes on tags (#EXT-X-KEY, #EXT-X-MAP, etc.)
+            line = re.sub(r'URI="([^"]+)"', lambda m: f'URI="{abs_proxy(m.group(1))}"', stripped)
+        elif stripped:
+            # Plain URL line (segment or sub-playlist)
+            line = abs_proxy(stripped)
+        out.append(line)
+    return "\n".join(out)
 
 
-def _restart_probe() -> None:
-    global _probe_task, _alive, _probed
-    _alive = None  # serve all channels until new probe finishes
-    _probed = None
-    if _probe_task and not _probe_task.done():
-        _probe_task.cancel()
-    _probe_task = asyncio.create_task(_probe_loop())
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    _restart_probe()
-    yield
-    if _probe_task:
-        _probe_task.cancel()
-
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -187,39 +186,56 @@ def get_filters():
 @app.post("/api/filters")
 async def update_filters(request: Request):
     _save_filters(await request.json())
-    _restart_probe()
     return {"ok": True}
 
 
-@app.get("/api/probe-status")
-def probe_status():
-    return {"alive": len(_alive) if _alive is not None else None, "running": _alive is None}
+@app.get("/proxy")
+async def proxy(url: str):
+    is_playlist = url.split("?")[0].lower().endswith((".m3u8", ".m3u"))
+
+    if is_playlist:
+        # Playlists need full buffering to rewrite URLs before returning
+        try:
+            async with httpx.AsyncClient(timeout=30, headers=HEADERS, follow_redirects=True) as c:
+                r = await c.get(url)
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError):
+            return Response(status_code=504)
+        ct = r.headers.get("content-type", "").lower()
+        if "mpegurl" in ct or is_playlist:
+            return Response(_rewrite_m3u8(r.text, str(r.url)).encode(),
+                            media_type="application/vnd.apple.mpegurl")
+        return Response(r.content, media_type=ct or "application/octet-stream")
+
+    # Segments: stream directly — CDN mid-stream drops become a clean EOF instead of a crash
+    async def _stream():
+        try:
+            async with httpx.AsyncClient(timeout=30, headers=HEADERS, follow_redirects=True) as c:
+                async with c.stream("GET", url) as r:
+                    async for chunk in r.aiter_bytes(chunk_size=65536):
+                        yield chunk
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError):
+            return  # hls.js retries truncated segments automatically
+
+    return StreamingResponse(_stream(), media_type="video/mp2t")
 
 
-@app.get("/api/alive")
-def get_alive():
-    # "probed" = urls the last probe actually checked (only matches the session's channels if
-    # its filters were pushed to the server); "alive" = the subset that passed.
-    return {
-        "probed": sorted(_probed) if _probed is not None else None,
-        "alive": sorted(_alive) if _alive is not None else None,
-    }
+@app.get("/api/channels")
+async def get_channels():
+    return await build_channels()
 
 
 @app.get("/playlist.m3u")
 async def get_playlist():
-    filters = _load_filters()
-    channels = await _fetch_all_channels(filters)
-
-    # Only filter by alive status once a probe has completed
-    if _alive is not None:
-        channels = [ch for ch in channels if ch["url"] in _alive]
-
+    channels = apply_filters(await build_channels(), _load_filters())
     lines = ["#EXTM3U"]
     for ch in channels:
-        lines.append(ch["extinf"])
+        logo = f' tvg-logo="{ch["logo"]}"' if ch.get("logo") else ""
+        lang = f' tvg-language="{ch["language"]}"' if ch.get("language") else ""
+        cat = f' group-title="{ch["category"]}"' if ch.get("category") else ""
+        lines.append(f'#EXTINF:-1 tvg-id="{ch["id"]}"{logo}{lang}{cat},{ch["name"]}')
         lines.append(ch["url"])
-
     return Response("\n".join(lines), media_type="audio/x-mpegurl",
                     headers={"Content-Disposition": 'inline; filename="playlist.m3u"'})
+
+
 app.mount("/", StaticFiles(directory="dist", html=True), name="static")

@@ -5,56 +5,13 @@ import Player from './components/Player'
 
 const IPTV = 'https://iptv-org.github.io'
 
-const DEFAULT_FILTERS: Filter[] = [{ id: 'default-live', field: 'live', value: 'true', negate: false }]
+const DEFAULT_FILTERS: Filter[] = []
 
 // languages.json shared fetch (~269KB, cached)
 let _langsP: Promise<{ code: string; name: string }[]> | null = null
 const fetchLangs = () => {
   if (!_langsP) _langsP = fetch(`${IPTV}/api/languages.json`).then(r => r.json())
   return _langsP
-}
-
-// feeds.json channel→language enrichment (~7MB, cached, lazy)
-let _langMetaP: Promise<Map<string, string>> | null = null
-function getLangMeta(): Promise<Map<string, string>> {
-  if (!_langMetaP) {
-    _langMetaP = Promise.all([
-      fetch(`${IPTV}/api/feeds.json`).then(r => r.json()),
-      fetchLangs(),
-    ]).then(([feeds, langs]: [any[], { code: string; name: string }[]]) => {
-      const langName = new Map(langs.map(l => [l.code, l.name]))
-      const map = new Map<string, string>()
-      for (const f of feeds) {
-        if (!f.languages?.length) continue
-        const names = f.languages.map((c: string) => langName.get(c) ?? c).join(';')
-        map.set(`${f.channel}@${f.id}`, names)
-        if (!map.has(f.channel)) map.set(f.channel, names)
-      }
-      return map
-    })
-  }
-  return _langMetaP
-}
-
-function parseM3U(text: string): Channel[] {
-  const lines = text.split('\n')
-  const channels: Channel[] = []
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line.startsWith('#EXTINF')) continue
-    const url = lines[i + 1]?.trim()
-    if (!url?.startsWith('http')) continue
-    const name = line.replace(/.*,/, '').trim()
-    const logo = line.match(/tvg-logo="([^"]+)"/)?.[1] || null
-    const id = line.match(/tvg-id="([^"]+)"/)?.[1] ?? name
-    const language = line.match(/tvg-language="([^"]+)"/)?.[1] || null
-    const category = line.match(/group-title="([^"]+)"/)?.[1] || null
-    // Extract country from tvg-id pattern "ChannelName.cc@feedId" or "ChannelName.cc"
-    const suffix = id.split('@')[0].split('.').pop() ?? ''
-    const country = suffix.length === 2 ? suffix.toUpperCase() : null
-    channels.push({ id, name, logo, url, number: channels.length + 1, language, category, country, is_live: null })
-  }
-  return channels
 }
 
 export default function App() {
@@ -66,12 +23,9 @@ export default function App() {
   const [filters, setFilters] = useState<Filter[]>([])
   const [loading, setLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const loadIdRef = useRef(0)
-  const lastIncludeKeyRef = useRef('')
   const filteredChannelsRef = useRef<typeof filteredChannels>([])
   const selectedUrlRef = useRef<string | null>(null)
   const [pushState, setPushState] = useState<'idle' | 'pushing' | 'done' | 'error'>('idle')
-  const [aliveInfo, setAliveInfo] = useState<{ probed: Set<string>; alive: Set<string> } | null>(null)
 
   // Load filters from server on mount — this session's starting point only.
   // Filters then stay local until the user explicitly pushes them back.
@@ -81,32 +35,6 @@ export default function App() {
       .then(setFilters)
       .catch(() => setFilters(DEFAULT_FILTERS))
   }, [])
-
-  // Server's deep-probe results (what the uvicorn alive-check actually found) — fetched once
-  // so the channel dots can be cross-checked against real playback instead of trusting either alone.
-  useEffect(() => {
-    fetch('/api/alive')
-      .then(r => r.json())
-      .then(({ probed, alive }: { probed: string[] | null; alive: string[] | null }) => {
-        if (probed && alive) setAliveInfo({ probed: new Set(probed), alive: new Set(alive) })
-      })
-      .catch(() => {})
-  }, [])
-
-  // Seed is_live from the probe for channels this session hasn't actually tried playing yet.
-  // Channels outside the server's last-probed set (filters not pushed) are left untouched.
-  useEffect(() => {
-    if (!aliveInfo) return
-    setChannels(prev => {
-      let changed = false
-      const next = prev.map(ch => {
-        if (ch.is_live !== null || !aliveInfo.probed.has(ch.url)) return ch
-        changed = true
-        return { ...ch, is_live: aliveInfo.alive.has(ch.url) }
-      })
-      return changed ? next : prev
-    })
-  }, [channels, aliveInfo])
 
   const pushSettings = useCallback(() => {
     setPushState('pushing')
@@ -121,62 +49,14 @@ export default function App() {
     fetchLangs().then(setLanguages).catch(console.error)
   }, [])
 
-  // Reload channels whenever include filters (country/language) change
+  // Load all alive channels once on mount (server-side JSON join, cached 6h)
   useEffect(() => {
-    const includes = filters.filter(f => !f.negate && (f.field === 'country' || f.field === 'language'))
-    const key = includes.map(f => `${f.field}:${f.value}`).sort().join('|')
-    if (key === lastIncludeKeyRef.current) return
-    lastIncludeKeyRef.current = key
-
-    if (!key) { setChannels([]); return }
-
-    const loadId = ++loadIdRef.current
     setLoading(true)
-    setChannels([])
-    setSelectedUrl(null)
-
-    ;(async () => {
-      try {
-        const langCodes = await fetchLangs().then(langs => new Map(langs.map(l => [l.name, l.code])))
-        const urls = includes.map(f => {
-          if (f.field === 'country') return `${IPTV}/iptv/countries/${f.value.toLowerCase()}.m3u`
-          const code = langCodes.get(f.value) ?? f.value.toLowerCase()
-          return `${IPTV}/iptv/languages/${code}.m3u`
-        })
-        const texts = await Promise.all(urls.map(url => fetch(url).then(r => r.text()).catch(() => '')))
-        if (loadIdRef.current !== loadId) return
-
-        // Merge M3Us, deduplicate by stream URL
-        const seen = new Set<string>()
-        const merged: Channel[] = []
-        for (const text of texts) {
-          for (const ch of parseM3U(text)) {
-            if (!seen.has(ch.url)) {
-              seen.add(ch.url)
-              merged.push({ ...ch, number: merged.length + 1 })
-            }
-          }
-        }
-        setChannels(merged)
-        setLoading(false)
-
-        // Background language enrichment via feeds.json
-        if (merged.length) {
-          getLangMeta().then(langMap => {
-            if (loadIdRef.current !== loadId) return
-            setChannels(prev => prev.map(ch => ({
-              ...ch,
-              language: ch.language ?? langMap.get(ch.id) ?? langMap.get(ch.id.replace(/@.*$/, '')) ?? null,
-            })))
-          }).catch(() => {})
-        }
-      } catch {
-        if (loadIdRef.current !== loadId) return
-        setChannels([])
-        setLoading(false)
-      }
-    })()
-  }, [filters]) // eslint-disable-line react-hooks/exhaustive-deps
+    fetch('/api/channels')
+      .then(r => r.json())
+      .then((data: Channel[]) => { setChannels(data); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
 
   const addFilter = useCallback((f: Omit<Filter, 'id'>) => {
     setFilters(prev => [...prev, { ...f, id: String(Date.now()) }])
@@ -186,40 +66,67 @@ export default function App() {
     setFilters(prev => prev.filter(f => f.id !== id))
   }, [])
 
-  // Apply client-side filters (exclude always; category/live include also client-side)
+  // Apply all filters client-side: includes (OR within field, AND across fields) then excludes
   const filteredChannels = useMemo(() => {
     let result = channels
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      result = result.filter(ch => ch.name.toLowerCase().includes(q))
-    }
+
+    const includesByField = new Map<string, string[]>()
     for (const f of filters) {
-      if (f.field === 'country' && f.negate) {
-        result = result.filter(ch => !ch.country || ch.country !== f.value.toUpperCase())
-      } else if (f.field === 'language' && f.negate) {
+      if (!f.negate) {
+        const arr = includesByField.get(f.field) ?? []
+        arr.push(f.value)
+        includesByField.set(f.field, arr)
+      }
+    }
+    for (const [field, values] of includesByField) {
+      if (field === 'country') {
+        const vset = new Set(values.map(v => v.toUpperCase()))
+        result = result.filter(ch => ch.country != null && vset.has(ch.country))
+      } else if (field === 'language') {
+        const vset = new Set(values)
+        result = result.filter(ch => {
+          if (!ch.language) return false
+          const langs = new Set(ch.language.split(';').map(l => l.trim()))
+          return [...vset].some(v => langs.has(v))
+        })
+      } else if (field === 'category') {
+        const vset = new Set(values)
+        result = result.filter(ch => {
+          if (!ch.category) return false
+          const cats = new Set(ch.category.split(';').map(c => c.trim()))
+          return [...vset].some(v => cats.has(v))
+        })
+      }
+    }
+
+    for (const f of filters) {
+      if (!f.negate) continue
+      if (f.field === 'country') {
+        result = result.filter(ch => ch.country !== f.value.toUpperCase())
+      } else if (f.field === 'language') {
         result = result.filter(ch => {
           if (!ch.language) return true
           return !ch.language.split(';').map(l => l.trim()).includes(f.value)
         })
       } else if (f.field === 'category') {
         result = result.filter(ch => {
-          const hit = ch.category === f.value
-          return f.negate ? !hit : hit
-        })
-      } else if (f.field === 'live') {
-        result = result.filter(ch => {
-          const hit = f.value === 'true' ? ch.is_live !== false : ch.is_live === false
-          return f.negate ? !hit : hit
+          if (!ch.category) return true
+          return !ch.category.split(';').map(c => c.trim()).includes(f.value)
         })
       }
+    }
+
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      result = result.filter(ch => ch.name.toLowerCase().includes(q))
     }
     return result
   }, [channels, search, filters])
 
-  // Auto-select first channel when none selected and list loads
+  // Auto-select first channel in the filtered list when nothing is playing
   useEffect(() => {
-    if (channels.length && !selectedUrl) setSelectedUrl(channels[0].url)
-  }, [channels.length]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (filteredChannels.length && !selectedUrl) setSelectedUrl(filteredChannels[0].url)
+  }, [filteredChannels.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derive index into filtered list (for sidebar highlight; -1 = filtered out)
   const selectedIdx = filteredChannels.findIndex(ch => ch.url === selectedUrl)
@@ -227,7 +134,9 @@ export default function App() {
   const selectedChannel = channels.find(ch => ch.url === selectedUrl) ?? null
 
   const availableCategories = useMemo(() =>
-    [...new Set(channels.flatMap(ch => ch.category ? [ch.category] : []))].sort()
+    [...new Set(channels.flatMap(ch =>
+      ch.category ? ch.category.split(';').map(c => c.trim()) : []
+    ))].sort()
   , [channels])
 
   const markLive = useCallback((url: string, live: boolean) => {

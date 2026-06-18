@@ -64,35 +64,52 @@ export default function Player({ channel, onLive, onError, sidebarOpen }: Props)
     setCcTracks([])
     setCcOn(false)
 
-    const fail = () => { setState('error'); onLive(channel.url, false); onError() }
+    const urls = [channel.url, ...channel.alt_urls]
 
-    if (Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: false })
-      hlsRef.current = hls
-      hls.loadSource(channel.url)
-      hls.attachMedia(video)
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(() => {})
-        setState('playing')
-        onLive(channel.url, true)
-      })
-      hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, (_, data) => {
-        setCcTracks(data.subtitleTracks.map((t: any) => ({ id: t.id, name: t.name || t.lang || `CC ${t.id + 1}` })))
-      })
-      hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) fail() })
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = channel.url
-      video.oncanplay = () => {
-        setState('playing')
-        onLive(channel.url, true)
-        const tracks = Array.from(video.textTracks).filter(t => t.kind === 'subtitles' || t.kind === 'captions')
-        if (tracks.length) setCcTracks(tracks.map((t, i) => ({ id: i, name: t.label || t.language || `CC ${i + 1}` })))
+    const tryUrl = (idx: number) => {
+      const proxied = `/proxy?url=${encodeURIComponent(urls[idx])}`
+
+      const fail = () => {
+        if (idx + 1 < urls.length) {
+          hlsRef.current?.destroy()
+          tryUrl(idx + 1)
+        } else {
+          setState('error')
+          onLive(channel.url, false)
+          onError()
+        }
       }
-      video.onerror = fail
-      video.play().catch(() => {})
-    } else {
-      fail()
+
+      if (Hls.isSupported()) {
+        const hls = new Hls({ enableWorker: false })
+        hlsRef.current = hls
+        hls.loadSource(proxied)
+        hls.attachMedia(video)
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          video.play().catch(() => {})
+          setState('playing')
+          onLive(channel.url, true)
+        })
+        hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, (_, data) => {
+          setCcTracks(data.subtitleTracks.map((t: any) => ({ id: t.id, name: t.name || t.lang || `CC ${t.id + 1}` })))
+        })
+        hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) fail() })
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = proxied
+        video.oncanplay = () => {
+          setState('playing')
+          onLive(channel.url, true)
+          const tracks = Array.from(video.textTracks).filter(t => t.kind === 'subtitles' || t.kind === 'captions')
+          if (tracks.length) setCcTracks(tracks.map((t, i) => ({ id: i, name: t.label || t.language || `CC ${i + 1}` })))
+        }
+        video.onerror = fail
+        video.play().catch(() => {})
+      } else {
+        fail()
+      }
     }
+
+    tryUrl(0)
 
     return () => { hlsRef.current?.destroy(); hlsRef.current = null }
   }, [channel?.url, onLive])

@@ -27,7 +27,6 @@ function pillLabel(f: Filter, countries: Country[]): string {
     const label = c ? `${c.flag} ${c.name}` : f.value
     return f.negate ? `not ${label}` : label
   }
-  if (f.field === 'live') return f.value === 'true' ? '🟢 live' : '⚫ offline'
   return f.negate ? `not ${f.value}` : f.value
 }
 
@@ -54,8 +53,6 @@ export default function ChannelList({ channels, selectedIdx, loading, search, on
     setBField('country')
     setBNegate(false)
   }
-
-  const hasSource = filters.some(f => !f.negate && (f.field === 'country' || f.field === 'language'))
 
   return (
     <div className="w-64 flex-shrink-0 flex flex-col border-r border-white/5 bg-black/20">
@@ -113,7 +110,6 @@ export default function ChannelList({ channels, selectedIdx, loading, search, on
               <option value="country" className="bg-zinc-800">Country</option>
               <option value="language" className="bg-zinc-800">Language</option>
               <option value="category" className="bg-zinc-800">Category</option>
-              <option value="live" className="bg-zinc-800">Live</option>
             </select>
             <select value={bNegate ? 'ex' : 'in'} onChange={e => setBNegate(e.target.value === 'ex')} className={sel + ' w-[5.5rem]'}>
               <option value="in" className="bg-zinc-800">Include</option>
@@ -147,13 +143,6 @@ export default function ChannelList({ channels, selectedIdx, loading, search, on
               <select value={bValue} onChange={e => setBValue(e.target.value)} className={sel + ' flex-1 min-w-0'}>
                 <option value="" className="bg-zinc-800">Pick…</option>
                 {availableCategories.map(c => <option key={c} value={c} className="bg-zinc-800">{c}</option>)}
-              </select>
-            )}
-            {bField === 'live' && (
-              <select value={bValue} onChange={e => setBValue(e.target.value)} className={sel + ' flex-1 min-w-0'}>
-                <option value="" className="bg-zinc-800">Pick…</option>
-                <option value="true" className="bg-zinc-800">Live streams</option>
-                <option value="false" className="bg-zinc-800">Offline</option>
               </select>
             )}
             <button
@@ -201,9 +190,7 @@ export default function ChannelList({ channels, selectedIdx, loading, search, on
         ))}
         {!loading && !channels.length && (
           <p className="text-center text-white/20 text-xs py-12 px-4 leading-relaxed">
-            {!hasSource
-              ? 'Add a country or language filter to load channels'
-              : search ? 'No matches' : 'No channels found'}
+            {search ? 'No matches' : 'No channels found'}
           </p>
         )}
       </div>
