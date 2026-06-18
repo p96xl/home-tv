@@ -11,7 +11,18 @@ Powered by [iptv-org](https://github.com/iptv-org/iptv) — 10,000+ channels acr
 - Live/dead stream indicators — updated as you watch
 - Channel logos, numbers, and status dots
 - Country preference saved in the browser
-- M3U playlist link in settings for IPTV apps
+- M3U playlist link in settings for IPTV apps like Tivimate etc.
+
+## Screenshots
+
+Channel List with Filters:
+<img width="957" height="631" alt="Screenshot 2026-06-18 111600" src="https://github.com/user-attachments/assets/44432036-47e0-46f5-b26c-efb056dd25e2" />
+
+Big Picture:
+<img width="950" height="623" alt="Screenshot 2026-06-18 111610" src="https://github.com/user-attachments/assets/07e7ec9a-ca1a-4efd-bcb0-c0865a9dbc7a" />
+
+Using something like m3u-ip.tv:
+<img width="954" height="629" alt="Screenshot 2026-06-18 111812" src="https://github.com/user-attachments/assets/67789a22-2b64-437c-8839-d0bacba31519" />
 
 ## Setup
 
