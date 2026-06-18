@@ -162,6 +162,17 @@ def _proxy_url(url: str) -> str:
     return f"/proxy?url={urllib.parse.quote(url, safe='')}"
 
 
+def _hd_label(quality: str | None) -> str | None:
+    if not quality:
+        return None
+    q = quality.lower()
+    if "4k" in q or "2160" in q or "uhd" in q:
+        return "4K"
+    if "1080" in q or "720" in q or "900" in q:
+        return "HD"
+    return None
+
+
 def _rewrite_m3u8(text: str, base_url: str) -> str:
     """Rewrite absolute and relative URLs in an m3u8 playlist to route through /proxy."""
     def abs_proxy(uri: str) -> str:
@@ -238,8 +249,12 @@ async def get_playlist():
         logo = f' tvg-logo="{ch["logo"]}"' if ch.get("logo") else ""
         lang = f' tvg-language="{ch["language"]}"' if ch.get("language") else ""
         cat = f' group-title="{ch["category"]}"' if ch.get("category") else ""
-        lines.append(f'#EXTINF:-1 tvg-id="{ch["id"]}"{logo}{lang}{cat},{ch["name"]}')
-        lines.append(ch["url"])
+        hd = _hd_label(ch.get("quality"))
+        name = f'{ch["name"]} [{hd}]' if hd else ch["name"]
+        # One entry per stream URL — players that understand tvg-id group them and try each in order
+        for url in [ch["url"]] + (ch.get("alt_urls") or []):
+            lines.append(f'#EXTINF:-1 tvg-id="{ch["id"]}"{logo}{lang}{cat},{name}')
+            lines.append(url)
     return Response("\n".join(lines), media_type="audio/x-mpegurl",
                     headers={"Content-Disposition": 'inline; filename="playlist.m3u"'})
 
