@@ -171,7 +171,7 @@ def _rewrite_m3u8(text: str, base_url: str) -> str:
     for line in text.splitlines():
         stripped = line.strip()
         if stripped.startswith("#"):
-            # Rewrite URI="..." attributes on tags (#EXT-X-KEY, #EXT-X-MAP, etc.)
+            # Rewrite URI=\"...\" attributes on tags (#EXT-X-KEY, #EXT-X-MAP, etc.)
             line = re.sub(r'URI="([^"]+)"', lambda m: f'URI="{abs_proxy(m.group(1))}"', stripped)
         elif stripped:
             # Plain URL line (segment or sub-playlist)
