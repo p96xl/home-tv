@@ -30,7 +30,7 @@ Using something like m3u-ip.tv:
 ```bash
 pipx install uvicorn[standard]
 pipx inject uvicorn fastapi httpx
-pipx ensurepath          # adds uvicorn to PATH — restart your shell after this
+pipx ensurepath          # adds uvicorn to PATH — then run: source ~/.bashrc (or open a new terminal)
 npm install
 npm run build            # creates the dist/ folder the server serves
 ```
