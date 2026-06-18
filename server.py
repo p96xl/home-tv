@@ -1,3 +1,4 @@
+from fastapi import FastAPI, Request
 import asyncio
 import json
 import re
@@ -5,7 +6,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
@@ -221,3 +222,4 @@ async def get_playlist():
 
     return Response("\n".join(lines), media_type="audio/x-mpegurl",
                     headers={"Content-Disposition": 'inline; filename="playlist.m3u"'})
+app.mount("/", StaticFiles(directory="dist", html=True), name="static")
