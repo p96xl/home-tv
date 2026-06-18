@@ -10,8 +10,9 @@ Powered by [iptv-org](https://github.com/iptv-org/iptv) — 10,000+ channels acr
 - TV-style keyboard navigation (↑ ↓)
 - Live/dead stream indicators — updated as you watch
 - Channel logos, numbers, and status dots
-- Country preference saved in the browser
 - M3U playlist link in settings for IPTV apps like Tivimate etc.
+- M3U playlist link will automatically update the channel list when 'Push Settings to Server' button is pressed
+- Filters are inclusive or exclusive for Country, Language, Catagory, Quality
 
 ## Screenshots
 
@@ -27,7 +28,6 @@ Using something like m3u-ip.tv:
 ## Setup
 
 ```bash
-sudo apt-get install -y ffmpeg   # provides ffprobe — used to verify streams actually decode
 pipx install uvicorn[standard]
 pipx inject uvicorn fastapi httpx
 npm install
@@ -40,13 +40,9 @@ npm install
 uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
-On startup the validator probes all streams for the default country (UA) concurrently. The frontend polls `/validate` every 4 seconds and updates status dots as results arrive. If the backend isn't running, the app still works — streams just start gray and turn green/red as you actually watch them.
-
 ## Chromecast
 
-**Option A — Cast tab** (simplest): Open in Chrome → three-dot menu → Cast → cast the tab.
-
-**Option B — Native IPTV app** (better): Get a Chromecast with Google TV, install IPTV Smarters or OTT Navigator, and paste the M3U URL from Settings.
+Get a Chromecast with Google TV, install an M3U streamer like Tivimate, and paste the M3U URL from Tivimate URL button on the top right.
 
 ## Keyboard shortcuts
 
