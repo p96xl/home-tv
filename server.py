@@ -63,15 +63,15 @@ async def build_channels() -> list[dict]:
         for code in (f.get("languages") or []):
             chan_langs[f["channel"]].add(lang_name.get(code, code))
 
-    # All stream URLs per channel (preserve order, deduplicate)
-    chan_urls: dict[str, list[str]] = defaultdict(list)
-    chan_url_seen: dict[str, set[str]] = defaultdict(set)
+    # All stream URLs + quality per channel (preserve order, deduplicate by URL)
+    chan_streams: dict[str, list[tuple[str, str | None]]] = defaultdict(list)
+    chan_stream_seen: dict[str, set[str]] = defaultdict(set)
     for s in raw_streams:
         ch = s.get("channel")
         url = s.get("url")
-        if ch and url and url not in chan_url_seen[ch]:
-            chan_urls[ch].append(url)
-            chan_url_seen[ch].add(url)
+        if ch and url and url not in chan_stream_seen[ch]:
+            chan_streams[ch].append((url, s.get("quality") or None))
+            chan_stream_seen[ch].add(url)
 
     # Best logo per channel (prefer in_use=true)
     chan_logo: dict[str, str] = {}
@@ -85,8 +85,8 @@ async def build_channels() -> list[dict]:
         if ch.get("closed"):  # closed = date string when closed, absent/empty when open
             continue
         cid = ch["id"]
-        urls = chan_urls.get(cid, [])
-        if not urls:
+        streams = chan_streams.get(cid, [])
+        if not streams:
             continue
         langs = chan_langs.get(cid, set())
         cats = [cat_name.get(c, c) for c in (ch.get("categories") or [])]
@@ -94,8 +94,9 @@ async def build_channels() -> list[dict]:
             "id": cid,
             "name": ch["name"],
             "logo": chan_logo.get(cid),
-            "url": urls[0],
-            "alt_urls": urls[1:],
+            "url": streams[0][0],
+            "alt_urls": [s[0] for s in streams[1:]],
+            "quality": streams[0][1],
             "number": len(channels) + 1,
             "language": ";".join(sorted(langs)) if langs else None,
             "category": ";".join(cats) if cats else None,
@@ -135,6 +136,9 @@ def apply_filters(channels: list[dict], filters: list[dict]) -> list[dict]:
             result = [ch for ch in result
                       if ch.get("category") and vset & {c.strip() for c in ch["category"].split(";")}
 ]
+        elif field == "quality":
+            vset = set(values)
+            result = [ch for ch in result if ch.get("quality") in vset]
 
     for f in excludes:
         field, value = f["field"], f["value"]
@@ -148,6 +152,8 @@ def apply_filters(channels: list[dict], filters: list[dict]) -> list[dict]:
             result = [ch for ch in result
                       if not ch.get("category") or value not in {c.strip() for c in ch["category"].split(";")}
 ]
+        elif field == "quality":
+            result = [ch for ch in result if ch.get("quality") != value]
 
     return result
 

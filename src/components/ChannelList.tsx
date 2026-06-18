@@ -10,6 +10,7 @@ interface Props {
   onSelect: (idx: number) => void
   filters: Filter[]
   availableCategories: string[]
+  availableQualities: string[]
   onAddFilter: (f: Omit<Filter, 'id'>) => void
   onRemoveFilter: (id: string) => void
   countries: Country[]
@@ -32,7 +33,15 @@ function pillLabel(f: Filter, countries: Country[]): string {
 
 const sel = 'bg-zinc-800 border border-white/10 rounded text-xs text-white outline-none focus:border-white/20 px-2 py-1.5'
 
-export default function ChannelList({ channels, selectedIdx, loading, search, onSearch, onSelect, filters, availableCategories, onAddFilter, onRemoveFilter, countries, languages }: Props) {
+function hdBadge(quality: string | null): string | null {
+  if (!quality) return null
+  const q = quality.toLowerCase()
+  if (q.includes('4k') || q.includes('2160') || q.includes('uhd')) return '4K'
+  if (q.includes('1080') || q.includes('720') || q.includes('900')) return 'HD'
+  return null
+}
+
+export default function ChannelList({ channels, selectedIdx, loading, search, onSearch, onSelect, filters, availableCategories, availableQualities, onAddFilter, onRemoveFilter, countries, languages }: Props) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
   const [building, setBuilding] = useState(false)
   const [bField, setBField] = useState<FilterField>('country')
@@ -110,6 +119,7 @@ export default function ChannelList({ channels, selectedIdx, loading, search, on
               <option value="country" className="bg-zinc-800">Country</option>
               <option value="language" className="bg-zinc-800">Language</option>
               <option value="category" className="bg-zinc-800">Category</option>
+              <option value="quality" className="bg-zinc-800">Quality</option>
             </select>
             <select value={bNegate ? 'ex' : 'in'} onChange={e => setBNegate(e.target.value === 'ex')} className={sel + ' w-[5.5rem]'}>
               <option value="in" className="bg-zinc-800">Include</option>
@@ -143,6 +153,12 @@ export default function ChannelList({ channels, selectedIdx, loading, search, on
               <select value={bValue} onChange={e => setBValue(e.target.value)} className={sel + ' flex-1 min-w-0'}>
                 <option value="" className="bg-zinc-800">Pick…</option>
                 {availableCategories.map(c => <option key={c} value={c} className="bg-zinc-800">{c}</option>)}
+              </select>
+            )}
+            {bField === 'quality' && (
+              <select value={bValue} onChange={e => setBValue(e.target.value)} className={sel + ' flex-1 min-w-0'}>
+                <option value="" className="bg-zinc-800">Pick…</option>
+                {availableQualities.map(q => <option key={q} value={q} className="bg-zinc-800">{q}</option>)}
               </select>
             )}
             <button
@@ -185,6 +201,11 @@ export default function ChannelList({ channels, selectedIdx, loading, search, on
             <span className={`flex-1 text-sm truncate ${idx === selectedIdx ? 'text-white' : 'text-white/65'}`}>
               {ch.name}
             </span>
+            {hdBadge(ch.quality) && (
+              <span className="text-[9px] font-mono font-bold text-sky-400/70 flex-shrink-0">
+                {hdBadge(ch.quality)}
+              </span>
+            )}
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot(ch)}`} />
           </button>
         ))}

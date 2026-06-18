@@ -96,6 +96,9 @@ export default function App() {
           const cats = new Set(ch.category.split(';').map(c => c.trim()))
           return [...vset].some(v => cats.has(v))
         })
+      } else if (field === 'quality') {
+        const vset = new Set(values)
+        result = result.filter(ch => ch.quality != null && vset.has(ch.quality))
       }
     }
 
@@ -113,6 +116,8 @@ export default function App() {
           if (!ch.category) return true
           return !ch.category.split(';').map(c => c.trim()).includes(f.value)
         })
+      } else if (f.field === 'quality') {
+        result = result.filter(ch => ch.quality !== f.value)
       }
     }
 
@@ -137,6 +142,10 @@ export default function App() {
     [...new Set(channels.flatMap(ch =>
       ch.category ? ch.category.split(';').map(c => c.trim()) : []
     ))].sort()
+  , [channels])
+
+  const availableQualities = useMemo(() =>
+    [...new Set(channels.map(ch => ch.quality).filter(Boolean) as string[])].sort()
   , [channels])
 
   const markLive = useCallback((url: string, live: boolean) => {
@@ -208,6 +217,7 @@ export default function App() {
             onSelect={idx => setSelectedUrl(filteredChannels[idx]?.url ?? null)}
             filters={filters}
             availableCategories={availableCategories}
+            availableQualities={availableQualities}
             onAddFilter={addFilter}
             onRemoveFilter={removeFilter}
             countries={countries}

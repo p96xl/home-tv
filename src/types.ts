@@ -4,6 +4,7 @@ export interface Channel {
   logo: string | null
   url: string
   alt_urls: string[]
+  quality: string | null
   number: number
   language: string | null
   category: string | null
@@ -17,7 +18,7 @@ export interface Country {
   flag: string
 }
 
-export type FilterField = 'language' | 'category' | 'country'
+export type FilterField = 'language' | 'category' | 'country' | 'quality'
 
 export interface Filter {
   id: string
