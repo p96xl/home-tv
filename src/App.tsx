@@ -154,7 +154,11 @@ export default function App() {
     if (next) setSelectedUrl(next.url)
   }, [])
 
+  const lastTapRef = useRef(0)
   const onChannel = useCallback((dir: 'next' | 'prev') => {
+    const now = Date.now()
+    if (now - lastTapRef.current < 500) return  // ignore rapid taps so a double-tap doesn't skip 2 channels
+    lastTapRef.current = now
     const list = filteredChannelsRef.current
     const cur = list.findIndex(ch => ch.url === selectedUrlRef.current)
     const target = dir === 'next' ? list[cur + 1] : list[cur - 1]
