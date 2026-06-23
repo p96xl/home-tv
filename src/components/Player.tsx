@@ -132,8 +132,8 @@ export default function Player({ channel, onLive, onError, onChannel, sidebarOpe
     <div className="flex-1 relative bg-black overflow-hidden">
       <video ref={videoRef} className="w-full h-full object-contain" playsInline />
 
-      {/* Tap zones for channel up/down — only in big picture mode when playing */}
-      {!sidebarOpen && state === 'playing' && (
+      {/* Tap zones for channel up/down — always available in big picture mode, even while buffering */}
+      {!sidebarOpen && (
         <>
           <div
             onClick={() => onChannel('prev')}
@@ -151,13 +151,13 @@ export default function Player({ channel, onLive, onError, onChannel, sidebarOpe
       )}
 
       {state === 'loading' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60 pointer-events-none">
           <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
         </div>
       )}
 
       {state === 'error' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80 pointer-events-none">
           <p className="text-white/40 text-sm">Stream unavailable</p>
         </div>
       )}
