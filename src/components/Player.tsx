@@ -6,12 +6,13 @@ interface Props {
   channel: Channel | null
   onLive: (url: string, live: boolean) => void
   onError: () => void
+  onChannel: (dir: 'next' | 'prev') => void
   sidebarOpen: boolean
 }
 
 type State = 'idle' | 'loading' | 'playing' | 'error'
 
-export default function Player({ channel, onLive, onError, sidebarOpen }: Props) {
+export default function Player({ channel, onLive, onError, onChannel, sidebarOpen }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const [state, setState] = useState<State>('idle')
@@ -130,6 +131,24 @@ export default function Player({ channel, onLive, onError, sidebarOpen }: Props)
   return (
     <div className="flex-1 relative bg-black overflow-hidden">
       <video ref={videoRef} className="w-full h-full object-contain" playsInline />
+
+      {/* Tap zones for channel up/down — only in big picture mode when playing */}
+      {!sidebarOpen && state === 'playing' && (
+        <>
+          <div
+            onClick={() => onChannel('prev')}
+            className="absolute top-0 left-0 right-0 h-1/2 cursor-pointer active:bg-white/5 select-none flex items-end justify-center pb-1"
+          >
+            {bannerKey !== null && <span className="text-white/10 text-2xl leading-none">▲</span>}
+          </div>
+          <div
+            onClick={() => onChannel('next')}
+            className="absolute bottom-0 left-0 right-0 h-1/2 cursor-pointer active:bg-white/5 select-none flex items-start justify-center pt-1"
+          >
+            {bannerKey !== null && <span className="text-white/10 text-2xl leading-none">▼</span>}
+          </div>
+        </>
+      )}
 
       {state === 'loading' && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/60">

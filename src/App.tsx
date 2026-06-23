@@ -154,6 +154,13 @@ export default function App() {
     if (next) setSelectedUrl(next.url)
   }, [])
 
+  const onChannel = useCallback((dir: 'next' | 'prev') => {
+    const list = filteredChannelsRef.current
+    const cur = list.findIndex(ch => ch.url === selectedUrlRef.current)
+    const target = dir === 'next' ? list[cur + 1] : list[cur - 1]
+    if (target) setSelectedUrl(target.url)
+  }, [])
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const list = filteredChannelsRef.current
@@ -231,7 +238,7 @@ export default function App() {
         >
           {sidebarOpen ? '‹' : '›'}
         </button>
-        <Player channel={selectedChannel} onLive={markLive} onError={onStreamError} sidebarOpen={sidebarOpen} />
+        <Player channel={selectedChannel} onLive={markLive} onError={onStreamError} onChannel={onChannel} sidebarOpen={sidebarOpen} />
       </div>
     </div>
   )
