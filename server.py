@@ -14,12 +14,55 @@ from fastapi.responses import Response, StreamingResponse
 
 FILTERS_FILE = Path("filters.json")
 IPTV = "https://iptv-org.github.io"
+FREETV = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8"
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
 CACHE_TTL = 6 * 3600  # 6 hours — iptv-org data changes slowly
 
 _default_filters: list = []
 _channels_cache: list | None = None
 _cache_ts: float = 0.0
+
+
+def _norm_url(u: str) -> str:
+    return u.split("?")[0].rstrip("/").lower()
+
+
+def _parse_m3u(text: str, start_number: int, seen: set[str]) -> list[dict]:
+    """Parse a Free-TV style M3U into channel dicts matching build_channels' schema.
+    Skips URLs already in `seen` (dedup against iptv-org) and adds kept ones to it.
+    ponytail: no quality/language data in this source — left None, no enrichment."""
+    def attr(line: str, key: str) -> str | None:
+        m = re.search(rf'{key}="([^"]*)"', line)
+        return m.group(1) if m and m.group(1) else None
+
+    lines = text.splitlines()
+    out: list[dict] = []
+    for i, line in enumerate(lines):
+        if not line.startswith("#EXTINF"):
+            continue
+        url = next((l.strip() for l in lines[i + 1:i + 3]
+                    if l.strip() and not l.startswith("#")), None)
+        if not url or "youtube.com" in url or "twitch.tv" in url:
+            continue  # page URLs, not direct streams — the proxy can't play them
+        key = _norm_url(url)
+        if key in seen:
+            continue
+        seen.add(key)
+        name = line.split(",", 1)[1].strip() if "," in line else (attr(line, "tvg-name") or "")
+        out.append({
+            "id": attr(line, "tvg-id"),
+            "name": name,
+            "logo": attr(line, "tvg-logo"),
+            "url": url,
+            "alt_urls": [],
+            "quality": None,
+            "number": start_number + len(out),
+            "language": None,
+            "category": attr(line, "group-title"),
+            "country": attr(line, "tvg-country"),
+            "is_live": None,
+        })
+    return out
 
 
 def _load_filters() -> list:
@@ -51,6 +94,10 @@ async def build_channels() -> list[dict]:
             c.get(f"{IPTV}/api/logos.json"),
             c.get(f"{IPTV}/api/categories.json"),
         )
+        try:
+            raw_freetv = (await c.get(FREETV)).text  # secondary source — don't fail the list if it's down
+        except Exception:
+            raw_freetv = ""
 
     raw_channels, raw_streams, raw_feeds, raw_langs, raw_logos, raw_cats = [r.json() for r in results]
 
@@ -103,6 +150,9 @@ async def build_channels() -> list[dict]:
             "country": ch.get("country") or None,
             "is_live": None,
         })
+
+    seen_urls = {_norm_url(u) for ch in channels for u in [ch["url"]] + ch["alt_urls"]}
+    channels += _parse_m3u(raw_freetv, len(channels) + 1, seen_urls)
 
     _channels_cache = channels
     _cache_ts = time.time()
