@@ -2,7 +2,7 @@
 
 Self-hosted IPTV channel browser. Browse live TV channels by country with a TV-style surfing UI.
 
-Powered by [iptv-org](https://github.com/iptv-org/iptv) — 10,000+ channels across 200+ countries.
+Powered by [iptv-org](https://github.com/iptv-org/iptv) and [Free-TV/IPTV](https://github.com/Free-TV/IPTV) — 10,000+ channels across 200+ countries.
 
 ## Features
 
@@ -64,4 +64,4 @@ For Tivimate its just http://YOUR-SERVER:8000/playlist.m3u
 
 ## How it works
 
-Channel data and stream URLs come directly from the [iptv-org](https://github.com/iptv-org/iptv) CDN (no backend needed). Stream health is detected live — if hls.js can't load a stream, the channel turns red. No pre-validation server required.
+Channel data and stream URLs come from [iptv-org](https://github.com/iptv-org/iptv) and [Free-TV/IPTV](https://github.com/Free-TV/IPTV), merged server-side (Free-TV streams already present in iptv-org are deduped out). Stream health is detected live — if hls.js can't load a stream, the channel turns red. No pre-validation server required.
