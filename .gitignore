@@ -4,7 +4,10 @@ dist/
 __pycache__/
 logs/
 filters.json
+blacklist.json
+local.m3u
 .pid.api
 .pid.ui
 vite.config.ts
 
+ua_hunt/

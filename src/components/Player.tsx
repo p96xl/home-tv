@@ -8,11 +8,13 @@ interface Props {
   onError: () => void
   onChannel: (dir: 'next' | 'prev') => void
   sidebarOpen: boolean
+  debug: boolean
+  onOmit: (url: string) => void
 }
 
 type State = 'idle' | 'loading' | 'playing' | 'error'
 
-export default function Player({ channel, onLive, onError, onChannel, sidebarOpen }: Props) {
+export default function Player({ channel, onLive, onError, onChannel, sidebarOpen, debug, onOmit }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const [state, setState] = useState<State>('idle')
@@ -20,6 +22,11 @@ export default function Player({ channel, onLive, onError, onChannel, sidebarOpe
   const bannerTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [ccTracks, setCcTracks] = useState<{id: number, name: string}[]>([])
   const [ccOn, setCcOn] = useState(false)
+  const [curUrl, setCurUrl] = useState<string | null>(null)  // which link is on screen (debug)
+  const curUrlRef = useRef<string | null>(null)
+  const advanceRef = useRef<(() => void) | null>(null)       // jump to the next link on omit
+  const playRef = useRef<((idx: number) => void) | null>(null)  // play a specific link (debug)
+  const manualRef = useRef(false)                            // user picked a link — don't auto-skip
 
   // Flash bottom banner on channel change when in full-page mode
   useEffect(() => {
@@ -44,6 +51,18 @@ export default function Player({ channel, onLive, onError, onChannel, sidebarOpe
     }
   }
 
+  const omitCurrent = () => {
+    const bad = curUrlRef.current
+    if (!bad) return
+    advanceRef.current?.()   // move to the next link immediately
+    onOmit(bad)              // persist the omission + drop it from the list
+  }
+
+  const playManual = (idx: number) => {
+    manualRef.current = true   // manual pick: on error, stop and show it (don't auto-skip)
+    playRef.current?.(idx)
+  }
+
   const toggleFullscreen = () => {
     const el = videoRef.current
     if (!el) return
@@ -64,20 +83,27 @@ export default function Player({ channel, onLive, onError, onChannel, sidebarOpe
     setState('loading')
     setCcTracks([])
     setCcOn(false)
+    manualRef.current = false
 
     const urls = [channel.url, ...channel.alt_urls]
 
     const tryUrl = (idx: number) => {
+      hlsRef.current?.destroy()
+      curUrlRef.current = urls[idx]
+      setCurUrl(urls[idx])
+      setState('loading')
+      advanceRef.current = () => (idx + 1 < urls.length ? tryUrl(idx + 1) : (setState('error'), onError()))
       const proxied = `/proxy?url=${encodeURIComponent(urls[idx])}`
 
       const fail = () => {
-        if (idx + 1 < urls.length) {
-          hlsRef.current?.destroy()
+        // Auto-skip to the next link only during normal playback; on a manual pick, stop on the
+        // error so the user can see this specific link is dead.
+        if (!manualRef.current && idx + 1 < urls.length) {
           tryUrl(idx + 1)
         } else {
           setState('error')
           onLive(channel.url, false)
-          onError()
+          if (!manualRef.current) onError()  // manual pick failing must not jump to the next channel
         }
       }
 
@@ -110,6 +136,7 @@ export default function Player({ channel, onLive, onError, onChannel, sidebarOpe
       }
     }
 
+    playRef.current = tryUrl
     tryUrl(0)
 
     return () => { hlsRef.current?.destroy(); hlsRef.current = null }
@@ -161,6 +188,45 @@ export default function Player({ channel, onLive, onError, onChannel, sidebarOpe
           <p className="text-white/40 text-sm">Stream unavailable</p>
         </div>
       )}
+
+      {debug && curUrl && (() => {
+        const urls = [channel.url, ...channel.alt_urls]
+        const idx = urls.indexOf(curUrl)
+        return (
+          <div className="absolute top-3 left-3 max-w-[min(90%,42rem)] bg-black/80 rounded p-2.5 text-[11px] font-mono pointer-events-auto z-10">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-amber-400">🐞 {urls.length} link{urls.length > 1 ? 's' : ''} — click to test</span>
+              <button
+                onClick={omitCurrent}
+                className="ml-auto px-1.5 py-0.5 rounded bg-red-600/80 hover:bg-red-600 text-white text-[10px]"
+                title="Omit the current link and drop it from this channel"
+              >
+                ⊘ Omit link {idx + 1}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1 mb-1.5">
+              {urls.map((_, i) => {
+                const cur = i === idx
+                const color = cur
+                  ? state === 'playing' ? 'bg-green-600 text-white'
+                    : state === 'error' ? 'bg-red-600 text-white'
+                    : 'bg-amber-500 text-black'
+                  : 'bg-white/10 text-white/60 hover:bg-white/20'
+                return (
+                  <button key={i} onClick={() => playManual(i)}
+                    className={`w-6 h-6 rounded ${color} ${cur ? 'ring-2 ring-white/70' : ''}`}
+                    title={urls[i]}>
+                    {i + 1}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="text-white/60 break-all leading-snug">
+              {state === 'playing' ? '● ' : state === 'error' ? '✕ ' : '… '}{curUrl}
+            </div>
+          </div>
+        )
+      })()}
 
       {showBanner && (
         <div

@@ -23,6 +23,7 @@ export default function App() {
   const [filters, setFilters] = useState<Filter[]>([])
   const [loading, setLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [debug, setDebug] = useState(false)
   const filteredChannelsRef = useRef<typeof filteredChannels>([])
   const selectedUrlRef = useRef<string | null>(null)
   const [pushState, setPushState] = useState<'idle' | 'pushing' | 'done' | 'error'>('idle')
@@ -154,6 +155,23 @@ export default function App() {
     if (next) setSelectedUrl(next.url)
   }, [])
 
+  // Debug: omit a bad stream URL — persist it server-side and drop it from the channel here.
+  const omitLink = useCallback((url: string) => {
+    fetch('/api/blacklist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).catch(() => {})
+    // If the omitted url is the selected channel's primary, follow it to the next surviving link.
+    if (selectedUrlRef.current === url) {
+      const ch = filteredChannelsRef.current.find(c => c.url === url)
+      const next = ch ? [ch.url, ...ch.alt_urls].filter(u => u !== url)[0] : undefined
+      setSelectedUrl(next ?? null)
+    }
+    setChannels(prev => prev.flatMap(ch => {
+      const all = [ch.url, ...ch.alt_urls]
+      if (!all.includes(url)) return [ch]
+      const kept = all.filter(u => u !== url)
+      return kept.length ? [{ ...ch, url: kept[0], alt_urls: kept.slice(1) }] : []
+    }))
+  }, [])
+
   const lastTapRef = useRef(0)
   const onChannel = useCallback((dir: 'next' | 'prev') => {
     const now = Date.now()
@@ -189,8 +207,15 @@ export default function App() {
       <header className={`flex items-center px-5 h-12 border-b border-white/5 bg-black/30 flex-shrink-0 gap-3 overflow-hidden transition-all duration-300 ${sidebarOpen ? '' : '-mt-12 opacity-0'}`}>
         <span className="font-bold tracking-tight">📺 Home TV</span>
         <button
+          onClick={() => setDebug(d => !d)}
+          className={`ml-auto text-[10px] font-mono border rounded px-2 py-1 transition-colors ${debug ? 'text-amber-400 border-amber-400/40' : 'text-white/25 hover:text-white/60 border-white/10 hover:border-white/20'}`}
+          title="Show the current stream URL and let you omit a bad link"
+        >
+          🐞 Debug
+        </button>
+        <button
           onClick={pushSettings}
-          className="ml-auto text-[10px] font-mono text-white/25 hover:text-white/60 border border-white/10 hover:border-white/20 rounded px-2 py-1 transition-colors"
+          className="text-[10px] font-mono text-white/25 hover:text-white/60 border border-white/10 hover:border-white/20 rounded px-2 py-1 transition-colors"
           title="Save this session's filters as the household default for new sessions"
         >
           {pushState === 'pushing' ? '⏳ Pushing…' : pushState === 'done' ? '✅ Pushed' : pushState === 'error' ? '⚠️ Failed' : '⬆️ Push Settings to Server'}
@@ -242,7 +267,7 @@ export default function App() {
         >
           {sidebarOpen ? '‹' : '›'}
         </button>
-        <Player channel={selectedChannel} onLive={markLive} onError={onStreamError} onChannel={onChannel} sidebarOpen={sidebarOpen} />
+        <Player channel={selectedChannel} onLive={markLive} onError={onStreamError} onChannel={onChannel} sidebarOpen={sidebarOpen} debug={debug} onOmit={omitLink} />
       </div>
     </div>
   )

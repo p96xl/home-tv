@@ -13,8 +13,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 
 FILTERS_FILE = Path("filters.json")
+BLACKLIST_FILE = Path("blacklist.json")  # stream URLs the user omitted as bad (debug mode)
 IPTV = "https://iptv-org.github.io"
 FREETV = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8"
+# One local M3U of extra channels (Ukrainian TV), merged after the online sources.
+# Regenerate it with ua_hunt/build_local_m3u.py; edit by hand if you like.
+LOCAL_M3U = Path("local.m3u")
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
 CACHE_TTL = 6 * 3600  # 6 hours — iptv-org data changes slowly
 
@@ -27,16 +31,22 @@ def _norm_url(u: str) -> str:
     return u.split("?")[0].rstrip("/").lower()
 
 
-def _parse_m3u(text: str, start_number: int, seen: set[str]) -> list[dict]:
-    """Parse a Free-TV style M3U into channel dicts matching build_channels' schema.
-    Skips URLs already in `seen` (dedup against iptv-org) and adds kept ones to it.
-    ponytail: no quality/language data in this source — left None, no enrichment."""
+def _merge_m3u(text: str, channels: list[dict], seen: set[str],
+               default_lang: str | None = None, default_country: str | None = None) -> None:
+    """Merge an M3U (Free-TV or a local file) into `channels` in place. A stream whose tvg-id
+    matches an existing channel is appended as a fallback URL — tried after iptv-org's own
+    streams, which carry known quality, so players still exhaust HD→SD→... before falling back
+    here. Unmatched streams become new channels, tagged by tvg-language / tvg-country or the
+    given defaults (locals default to Ukrainian/UA so the app's filters catch them). Dedups by
+    URL against `seen`.
+    ponytail: no quality data in these sources — new channels stay None; matched ones keep the
+    iptv-org metadata they already have."""
     def attr(line: str, key: str) -> str | None:
         m = re.search(rf'{key}="([^"]*)"', line)
         return m.group(1) if m and m.group(1) else None
 
+    by_id = {ch["id"]: ch for ch in channels if ch.get("id")}
     lines = text.splitlines()
-    out: list[dict] = []
     for i, line in enumerate(lines):
         if not line.startswith("#EXTINF"):
             continue
@@ -48,21 +58,36 @@ def _parse_m3u(text: str, start_number: int, seen: set[str]) -> list[dict]:
         if key in seen:
             continue
         seen.add(key)
+        tvg_id = attr(line, "tvg-id")
+        match = by_id.get(tvg_id) if tvg_id else None
+        if match:
+            match["alt_urls"].append(url)  # fallback after the known-quality streams
+            continue
         name = line.split(",", 1)[1].strip() if "," in line else (attr(line, "tvg-name") or "")
-        out.append({
-            "id": attr(line, "tvg-id"),
+        ch = {
+            "id": tvg_id,
             "name": name,
             "logo": attr(line, "tvg-logo"),
             "url": url,
             "alt_urls": [],
             "quality": None,
-            "number": start_number + len(out),
-            "language": None,
+            "number": 0,  # renumbered by build_channels
+            "language": attr(line, "tvg-language") or default_lang,
             "category": attr(line, "group-title"),
-            "country": attr(line, "tvg-country"),
+            "country": attr(line, "tvg-country") or default_country,
             "is_live": None,
-        })
-    return out
+        }
+        channels.append(ch)
+        if tvg_id:
+            by_id[tvg_id] = ch  # later links for this channel group in as fallbacks too
+
+
+def _load_local(channels: list[dict], seen: set[str]) -> None:
+    """Merge the local extra-channels M3U — Ukrainian TV, defaulted to language/country so the
+    app's language and country filters include them."""
+    if LOCAL_M3U.exists():
+        _merge_m3u(LOCAL_M3U.read_text(encoding="utf-8"), channels, seen,
+                   default_lang="Ukrainian", default_country="UA")
 
 
 def _load_filters() -> list:
@@ -76,6 +101,29 @@ def _load_filters() -> list:
 
 def _save_filters(filters: list) -> None:
     FILTERS_FILE.write_text(json.dumps(filters))
+
+
+def _load_blacklist() -> list:
+    try:
+        if BLACKLIST_FILE.exists():
+            return json.loads(BLACKLIST_FILE.read_text())
+    except Exception:
+        pass
+    return []
+
+
+def _apply_blacklist(channels: list[dict]) -> list[dict]:
+    """Drop omitted stream URLs; return copies so the cached build stays intact. A channel whose
+    every URL is blacklisted disappears entirely."""
+    bl = {_norm_url(u) for u in _load_blacklist()}
+    if not bl:
+        return channels
+    out = []
+    for ch in channels:
+        urls = [u for u in [ch["url"], *ch["alt_urls"]] if _norm_url(u) not in bl]
+        if urls:
+            out.append({**ch, "url": urls[0], "alt_urls": urls[1:]})
+    return out
 
 
 async def build_channels() -> list[dict]:
@@ -152,7 +200,10 @@ async def build_channels() -> list[dict]:
         })
 
     seen_urls = {_norm_url(u) for ch in channels for u in [ch["url"]] + ch["alt_urls"]}
-    channels += _parse_m3u(raw_freetv, len(channels) + 1, seen_urls)
+    _merge_m3u(raw_freetv, channels, seen_urls)
+    _load_local(channels, seen_urls)
+    for i, ch in enumerate(channels):
+        ch["number"] = i + 1
 
     _channels_cache = channels
     _cache_ts = time.time()
@@ -254,6 +305,23 @@ async def update_filters(request: Request):
     return {"ok": True}
 
 
+@app.get("/api/blacklist")
+def get_blacklist():
+    return _load_blacklist()
+
+
+@app.post("/api/blacklist")
+async def add_blacklist(request: Request):
+    """Omit a bad stream URL (debug mode). Idempotent append to blacklist.json."""
+    url = (await request.json()).get("url")
+    if url:
+        bl = _load_blacklist()
+        if url not in bl:
+            bl.append(url)
+            BLACKLIST_FILE.write_text(json.dumps(bl))
+    return {"ok": True}
+
+
 @app.get("/proxy")
 async def proxy(url: str):
     is_playlist = url.split("?")[0].lower().endswith((".m3u8", ".m3u"))
@@ -284,12 +352,12 @@ async def proxy(url: str):
 
 @app.get("/api/channels")
 async def get_channels():
-    return await build_channels()
+    return _apply_blacklist(await build_channels())
 
 
 @app.get("/playlist.m3u")
 async def get_playlist(request: Request, proxy: bool = False):
-    channels = apply_filters(await build_channels(), _load_filters())
+    channels = apply_filters(_apply_blacklist(await build_channels()), _load_filters())
     base = str(request.base_url).rstrip("/")
     lines = ["#EXTM3U"]
     for ch in channels:
