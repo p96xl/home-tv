@@ -14,6 +14,9 @@ from fastapi.responses import Response, StreamingResponse
 
 FILTERS_FILE = Path("filters.json")
 BLACKLIST_FILE = Path("blacklist.json")  # stream URLs the user omitted as bad (debug mode)
+# local.m3u channels carry invented tvg-ids and no logo. This maps them to real iptv-org channel
+# ids so they can borrow that channel's logo. Regenerate with ua_hunt/map_logos.py.
+LOGO_MAP_FILE = Path("logo_map.json")
 IPTV = "https://iptv-org.github.io"
 FREETV = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8"
 # One local M3U of extra channels (Ukrainian TV), merged after the online sources.
@@ -202,6 +205,13 @@ async def build_channels() -> list[dict]:
     seen_urls = {_norm_url(u) for ch in channels for u in [ch["url"]] + ch["alt_urls"]}
     _merge_m3u(raw_freetv, channels, seen_urls)
     _load_local(channels, seen_urls)
+
+    # Borrow iptv-org logos for local channels that have none (see LOGO_MAP_FILE).
+    logo_map = json.loads(LOGO_MAP_FILE.read_text(encoding="utf-8")) if LOGO_MAP_FILE.exists() else {}
+    for ch in channels:
+        if not ch.get("logo") and ch["id"] in logo_map:
+            ch["logo"] = chan_logo.get(logo_map[ch["id"]])
+
     for i, ch in enumerate(channels):
         ch["number"] = i + 1
 
