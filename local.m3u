@@ -1,0 +1,499 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="local.1horodskyikryvyirih" tvg-language="Ukrainian" group-title="Ukraine",1 Городский Кривий Ріг
+https://cdn1.live-tv.cloud/1tvkr/1tvkr-abr-lq/playlist.m3u8
+#EXTINF:-1 tvg-id="local.11" tvg-language="Ukrainian" group-title="Ukraine",1+1 UA
+http://m3u8.ott.blue/C5UK_1plus1SD/mpegts?token=94450098895765784220366841698509
+#EXTINF:-1 tvg-id="local.100" tvg-language="Ukrainian" group-title="Ukraine",100
+http://85.238.112.40:8810/hls_sec/239.33.16.32-.m3u8
+#EXTINF:-1 tvg-id="local.112ukraina" tvg-language="Ukrainian" group-title="Ukraine",112 Україна
+http://developer.ottclub.xyz/iptv/FQ9M6P6NLZ42QH/924/index.m3u8
+#EXTINF:-1 tvg-id="local.24kanal" tvg-language="Ukrainian" group-title="Ukraine",24 канал HD
+http://streamvideol1.luxnet.ua/news24/smil:news24.stream.smil/playlist.m3u8
+#EXTINF:-1 tvg-id="local.24kanal" tvg-language="Ukrainian" group-title="Ukraine",24 канал HD
+https://ext.cdn.nashnet.tv/228.0.0.33/index.m3u8
+#EXTINF:-1 tvg-id="local.33kanal" tvg-language="Ukrainian" group-title="Ukraine",33 канал
+https://33news.org/33chanel/live/chunklist_w459617257.m3u8
+#EXTINF:-1 tvg-id="local.4evertneater" tvg-language="Ukrainian" group-title="Ukraine",4EVER Theater HD
+http://cdnua05.hls.tv/923/hls/8743361621b245838bee193c9ec28322/4837/stream.m3u8
+#EXTINF:-1 tvg-id="local.4tv" tvg-language="Ukrainian" group-title="Ukraine",4TV
+https://cdnua03.hls.tv/178/hls/6154479a1319705257f2335762b18f51/4838/stream.m3u8
+#EXTINF:-1 tvg-id="local.4tvternopil" tvg-language="Ukrainian" group-title="Ukraine",4TV Тернопіль
+http://cdnua05.hls.tv/654/hls/f62d71219200da4130d13b21d23fb23c/4838/stream.m3u8
+#EXTINF:-1 tvg-id="local.5kanal" tvg-language="Ukrainian" group-title="Ukraine",5 Канал HD
+https://api-tv.ipnet.ua/api/v1/manifest/2118742539.m3u8
+#EXTINF:-1 tvg-id="local.8kanal" tvg-language="Ukrainian" group-title="Ukraine",8 канал HD
+https://cdnua03.hls.tv/178/hls/6154479a1319705257f2335762b18f51/4051/stream.m3u8
+#EXTINF:-1 tvg-id="local.8kanal" tvg-language="Ukrainian" group-title="Ukraine",8 канал HD
+https://ext.cdn.nashnet.tv/228.0.0.138/index.m3u8
+#EXTINF:-1 tvg-id="local.atr" tvg-language="Ukrainian" group-title="Ukraine",ATR HD
+https://ext.cdn.nashnet.tv/228.0.0.49/index.m3u8
+#EXTINF:-1 tvg-id="local.snerniveskijrromin" tvg-language="Ukrainian" group-title="Ukraine",Chernіveckij Promіn
+http://langate.tv/promin/live_720/index.m3u8
+#EXTINF:-1 tvg-id="local.sine" tvg-language="Ukrainian" group-title="Ukraine",Cine+ R
+http://cdnua05.hls.tv/929/hls/8743361621b245838bee193c9ec28322/4846/stream.m3u8
+#EXTINF:-1 tvg-id="local.sine" tvg-language="Ukrainian" group-title="Ukraine",Cine+ R
+http://cdnua05.hls.tv/hls/8743361621b245838bee193c9ec28322/4846/stream.m3u8
+#EXTINF:-1 tvg-id="local.sontinente" tvg-language="Ukrainian" group-title="Ukraine",Continent E HD
+http://cdnua05.hls.tv/922/hls/8743361621b245838bee193c9ec28322/4834/stream.m3u8
+#EXTINF:-1 tvg-id="local.ekhslusive" tvg-language="Ukrainian" group-title="Ukraine",EXCLUSIVE TV
+http://excl.com.ua/hls/ex.m3u8
+#EXTINF:-1 tvg-id="local.filmgrour" tvg-language="Ukrainian" group-title="Ukraine",FILM TV GROUP
+http://filmtvgroup.hopto.org/FILM_TV_GROUP/index.m3u8?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3NjEwMDgwNzMsImV4cCI6MTc2MTA5NDQ3Mywic3ViIjoiQWRtaW4ifQ.q63jEFty3Ry19ORUfTNUPhkvCSFnFBk9mHhXIwaxgLQ
+#EXTINF:-1 tvg-id="local.filmkinozal" tvg-language="Ukrainian" group-title="Ukraine",FILM TV Кінозал
+http://filmtvgroup.hopto.org/FILMTVKinozaL/index.m3u8?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3NjEwMDgwNzMsImV4cCI6MTc2MTA5NDQ3Mywic3ViIjoiQWRtaW4ifQ.q63jEFty3Ry19ORUfTNUPhkvCSFnFBk9mHhXIwaxgLQ
+#EXTINF:-1 tvg-id="local.freedom" tvg-language="Ukrainian" group-title="Ukraine",FREEДОМ HD
+https://cdnua03.hls.tv/176/hls/6154479a1319705257f2335762b18f51/91/stream.m3u8
+#EXTINF:-1 tvg-id="local.funkomediinyi" tvg-language="Ukrainian" group-title="Ukraine",fun HD КОМЕДІЙНИЙ
+http://cdnua05.hls.tv/630/hls/f62d71219200da4130d13b21d23fb23c/4898/stream.m3u8
+#EXTINF:-1 tvg-id="local.gagsnetwork" tvg-language="Ukrainian" group-title="Ukraine",Gags Network HD
+http://cdnua05.hls.tv/1236/hls/8743361621b245838bee193c9ec28322/4877/stream.m3u8
+#EXTINF:-1 tvg-id="local.istv2" tvg-language="Ukrainian" group-title="Ukraine",ICTV 2 hd
+http://cdnua05.hls.tv/919/hls/8743361621b245838bee193c9ec28322/4835/stream.m3u8
+#EXTINF:-1 tvg-id="local.istv2" tvg-language="Ukrainian" group-title="Ukraine",ICTV 2 hd
+http://cdnua05.hls.tv/921/hls/8743361621b245838bee193c9ec28322/4835/stream.m3u8
+#EXTINF:-1 tvg-id="local.istv2" tvg-language="Ukrainian" group-title="Ukraine",ICTV 2 hd
+http://cdnua05.hls.tv/922/hls/8743361621b245838bee193c9ec28322/4835/stream.m3u8
+#EXTINF:-1 tvg-id="local.istv2" tvg-language="Ukrainian" group-title="Ukraine",ICTV 2 hd
+http://cdnua05.hls.tv/427/hls/8743361621b245838bee193c9ec28322/4835/stream.m3u8
+#EXTINF:-1 tvg-id="local.istvserial" tvg-language="Ukrainian" group-title="Ukraine",ICTV Серіал HD
+http://cdnua05.hls.tv/623/hls/f62d71219200da4130d13b21d23fb23c/4896/stream.m3u8
+#EXTINF:-1 tvg-id="local.istvserial" tvg-language="Ukrainian" group-title="Ukraine",ICTV Серіал HD
+http://cdnua05.hls.tv/624/hls/f62d71219200da4130d13b21d23fb23c/4896/stream.m3u8
+#EXTINF:-1 tvg-id="local.istvserial" tvg-language="Ukrainian" group-title="Ukraine",ICTV Серіал HD
+http://cdnua05.hls.tv/625/hls/f62d71219200da4130d13b21d23fb23c/4896/stream.m3u8
+#EXTINF:-1 tvg-id="local.kiew" tvg-language="Ukrainian" group-title="Ukraine",Kiew TV
+http://api.tv.ipnet.ua/api/v1/manifest/1293296300.m3u8?codec=mpeg4
+#EXTINF:-1 tvg-id="local.lale" tvg-language="Ukrainian" group-title="Ukraine",Lale HD
+https://ext.cdn.nashnet.tv/228.0.0.50/index.m3u8
+#EXTINF:-1 tvg-id="local.lanetvrain" tvg-language="Ukrainian" group-title="Ukraine",Lanet TV Brain
+http://play.lanet.tv/live/2007.m3u8
+#EXTINF:-1 tvg-id="local.lanetlive" tvg-language="Ukrainian" group-title="Ukraine",Lanet TV Live
+http://play.lanet.tv/live/2008.m3u8
+#EXTINF:-1 tvg-id="local.lanettrailer" tvg-language="Ukrainian" group-title="Ukraine",Lanet TV Trailer
+http://play.lanet.tv/live/2001.m3u8
+#EXTINF:-1 tvg-id="local.mstudio" tvg-language="Ukrainian" group-title="Ukraine",M-Studio
+http://213.174.23.59:8080/MS
+#EXTINF:-1 tvg-id="local.megogolive" tvg-language="Ukrainian" group-title="Ukraine",Megogo live HD
+https://ext.cdn.nashnet.tv/228.0.2.214/index.m3u8
+#EXTINF:-1 tvg-id="local.ovozrevatel" tvg-language="Ukrainian" group-title="Ukraine",OBOZREVATEL
+http://cdnua05.hls.tv/942/hls/8743361621b245838bee193c9ec28322/3984/stream.m3u8
+#EXTINF:-1 tvg-id="local.ovozrevatel" tvg-language="Ukrainian" group-title="Ukraine",OBOZREVATEL
+http://cdnua05.hls.tv/778/hls/f62d71219200da4130d13b21d23fb23c/3984/stream.m3u8
+#EXTINF:-1 tvg-id="local.ovozrevatel" tvg-language="Ukrainian" group-title="Ukraine",OBOZREVATEL
+https://ext.cdn.nashnet.tv/228.0.0.148/index.m3u8
+#EXTINF:-1 tvg-id="local.onerlanet" tvg-language="Ukrainian" group-title="Ukraine",ONE PLANET HD
+http://cdnua05.hls.tv/916/hls/8743361621b245838bee193c9ec28322/4832/stream.m3u8
+#EXTINF:-1 tvg-id="local.ont" tvg-language="Ukrainian" group-title="Ukraine",ONT
+http://85.238.112.40:8810/hls_sec/239.33.75.33-.m3u8
+#EXTINF:-1 tvg-id="local.rerviugorodskouodessa" tvg-language="Ukrainian" group-title="Ukraine",Perviy Gorodskoy Odessa
+http://91.194.79.46:8081/stream1/channel1/playlist.m3u8
+#EXTINF:-1 tvg-id="local.rowerkremenchuh" tvg-language="Ukrainian" group-title="Ukraine",Power Кременчуг
+http://radio.moa.org.ua/power
+#EXTINF:-1 tvg-id="local.rada" tvg-language="Ukrainian" group-title="Ukraine",Rada
+http://api.tv.ipnet.ua/api/v1/manifest/1312714970.m3u8?codec=mpeg4
+#EXTINF:-1 tvg-id="local.rada" tvg-language="Ukrainian" group-title="Ukraine",Rada
+https://ext.cdn.nashnet.tv/228.0.0.24/index.m3u8
+#EXTINF:-1 tvg-id="local.rada" tvg-language="Ukrainian" group-title="Ukraine",Rada
+http://api.tv.ipnet.ua/api/v1/manifest/1312714970.m3u8
+#EXTINF:-1 tvg-id="local.rada" tvg-language="Ukrainian" group-title="Ukraine",Rada
+http://api.tv.ipnet.ua/api/v1/manifest/1312714970.m3u8?codec=mpeg4&app=playlist
+#EXTINF:-1 tvg-id="local.renome" tvg-language="Ukrainian" group-title="Ukraine",Renome
+http://85.238.112.40:8810/hls_sec/239.33.116.26-.m3u8
+#EXTINF:-1 tvg-id="local.renome" tvg-language="Ukrainian" group-title="Ukraine",Renome
+http://85.238.112.40:8810/hls_sec/online/list-renome.m3u8
+#EXTINF:-1 tvg-id="local.rerortiorodessa" tvg-language="Ukrainian" group-title="Ukraine",Reportior Odessa
+http://cdn1.live-tv.od.ua:8081/31chod/31chod-abr/playlist.m3u8
+#EXTINF:-1 tvg-id="local.simon" tvg-language="Ukrainian" group-title="Ukraine",Simon TV
+http://hls.simon.ua/live-HD/live/playlist.m3u8
+#EXTINF:-1 tvg-id="local.sk1" tvg-language="Ukrainian" group-title="Ukraine",SК1
+http://cdn1.live-tv.od.ua:8081/sk1zt/sk1zt-abr/sk1zt/sk1zt720p/playlist.m3u8
+#EXTINF:-1 tvg-id="local.sk1" tvg-language="Ukrainian" group-title="Ukraine",SК1
+http://cdn10.live-tv.od.ua:8081/sk1zt/sk1zt720p/playlist.m3u8
+#EXTINF:-1 tvg-id="local.tak" tvg-language="Ukrainian" group-title="Ukraine",TAK TV HD
+https://cdnua03.hls.tv/178/hls/6154479a1319705257f2335762b18f51/97/stream.m3u8
+#EXTINF:-1 tvg-id="local.tvaszernowitz" tvg-language="Ukrainian" group-title="Ukraine",TBA Czernowitz
+http://hls.cdn.ua/tva.ua_live/_definst_/livestream/playlist.m3u8
+#EXTINF:-1 tvg-id="local.travelkhr" tvg-language="Ukrainian" group-title="Ukraine",TRAVELXP HD
+http://cdnua05.hls.tv/944/hls/8743361621b245838bee193c9ec28322/4806/stream.m3u8
+#EXTINF:-1 tvg-id="local.trkkrugodessa" tvg-language="Ukrainian" group-title="Ukraine",TRK KRUG ODESSA
+http://cdn1.live-tv.od.ua:8081/krugod/krugod-abr/krugod/krugod/playlist.m3u8
+#EXTINF:-1 tvg-id="local.rivne1" tvg-language="Ukrainian" group-title="Ukraine",TV Rivne 1
+https://cdn1.live-tv.cloud/rivne1/rivne1-abr/playlist.m3u8
+#EXTINF:-1 tvg-id="local.zaporozhe" tvg-language="Ukrainian" group-title="Ukraine",TV Запорожье
+http://stream.ztv.zp.ua/hls/live.m3u8?cur=tva.org.ua&key=3i277
+#EXTINF:-1 tvg-id="local.apostrof" tvg-language="Ukrainian" group-title="Ukraine",АПОСТРОФ
+https://ext.cdn.nashnet.tv/228.0.2.165/index.m3u8
+#EXTINF:-1 tvg-id="local.balta" tvg-language="Ukrainian" group-title="Ukraine",Балта ТВ HD
+http://194.50.51.34/playlist.m3u8
+#EXTINF:-1 tvg-id="local.viktoryna" tvg-language="Ukrainian" group-title="Ukraine",ВІКТОРИНА HD
+http://cdnua05.hls.tv/221/hls/f62d71219200da4130d13b21d23fb23c/4910/stream.m3u8
+#EXTINF:-1 tvg-id="local.viktoryna" tvg-language="Ukrainian" group-title="Ukraine",ВІКТОРИНА HD
+http://cdnua05.hls.tv/921/hls/f62d71219200da4130d13b21d23fb23c/4910/stream.m3u8
+#EXTINF:-1 tvg-id="local.harmonyiamyra" tvg-language="Ukrainian" group-title="Ukraine",Гармония мира
+https://garmonia-stream.fakel.com.ua/1
+#EXTINF:-1 tvg-id="local.hotuiemorazom" tvg-language="Ukrainian" group-title="Ukraine",ГОТУЄМО РАЗОМ
+http://cdnua05.hls.tv/0949/hls/8743361621b245838bee193c9ec28322/4881/stream.m3u8
+#EXTINF:-1 tvg-id="local.dnipro" tvg-language="Ukrainian" group-title="Ukraine",ДНІПРО ТВ
+http://cdnua05.hls.tv/0338/hls/8743361621b245838bee193c9ec28322/4880/stream.m3u8
+#EXTINF:-1 tvg-id="local.dnipro" tvg-language="Ukrainian" group-title="Ukraine",ДНІПРО ТВ
+http://vcdn1.produck.company:1935/out/dtv/playlist.m3u8
+#EXTINF:-1 tvg-id="local.espreso" tvg-language="Ukrainian" group-title="Ukraine",ЕСПРЕСО HD
+https://ext.cdn.nashnet.tv/228.0.0.191/index.m3u8
+#EXTINF:-1 tvg-id="local.zhvlzhyttiavidomykhliudei" tvg-language="Ukrainian" group-title="Ukraine",ЖВЛ+ життя відомих людей
+http://cdnua05.hls.tv/622/hls/f62d71219200da4130d13b21d23fb23c/4895/stream.m3u8
+#EXTINF:-1 tvg-id="local.zahublenyisvit" tvg-language="Ukrainian" group-title="Ukraine",Загублений Світ+
+http://cdnua05.hls.tv/620/hls/f62d71219200da4130d13b21d23fb23c/4894/stream.m3u8
+#EXTINF:-1 tvg-id="local.zakhidnyipolius" tvg-language="Ukrainian" group-title="Ukraine",Західний полюс
+https://online.z-polus.info/hq
+#EXTINF:-1 tvg-id="local.zoosvit" tvg-language="Ukrainian" group-title="Ukraine",ЗООСВІТ
+http://cdnua05.hls.tv/654/hls/f62d71219200da4130d13b21d23fb23c/4865/stream.m3u8
+#EXTINF:-1 tvg-id="local.zoosvit" tvg-language="Ukrainian" group-title="Ukraine",ЗООСВІТ
+http://cdnua05.hls.tv/036/hls/8743361621b245838bee193c9ec28322/4865/stream.m3u8
+#EXTINF:-1 tvg-id="local.kanalblahodati" tvg-language="Ukrainian" group-title="Ukraine",Канал Благодаті
+http://noasrv.caster.fm:10001/live
+#EXTINF:-1 tvg-id="local.kapuchyno" tvg-language="Ukrainian" group-title="Ukraine",Капучино TV
+http://ext.cdn.nashnet.tv/228.0.0.136/index.m3u8
+#EXTINF:-1 tvg-id="local.kyev" tvg-language="Ukrainian" group-title="Ukraine",Киев ТВ
+http://api.tv.ipnet.ua/api/v1/manifest/1293296300.m3u8
+#EXTINF:-1 tvg-id="local.kyiv" tvg-language="Ukrainian" group-title="Ukraine",Киів TV
+http://api.tv.ipnet.ua/api/v1/manifest/1293296300.m3u8?codec=mpeg4
+#EXTINF:-1 tvg-id="local.kyiv" tvg-language="Ukrainian" group-title="Ukraine",Киів TV
+https://ext.cdn.nashnet.tv/228.0.0.15/index.m3u8
+#EXTINF:-1 tvg-id="local.kyiv" tvg-language="Ukrainian" group-title="Ukraine",Киів TV
+http://api.tv.ipnet.ua/api/v1/manifest/1293296300.m3u8
+#EXTINF:-1 tvg-id="local.kyiv" tvg-language="Ukrainian" group-title="Ukraine",Киів TV
+http://api.tv.ipnet.ua/api/v1/manifest/1293296300.m3u8?codec=mpeg4&app=playlist
+#EXTINF:-1 tvg-id="local.kruh" tvg-language="Ukrainian" group-title="Ukraine",Круг
+http://cdn1.live-tv.od.ua:8081/krugod/krugod-abr-lq/playlist.m3u8
+#EXTINF:-1 tvg-id="local.kinotaserialy" tvg-language="Ukrainian" group-title="Ukraine",КІНО ТА СЕРІАЛИ
+http://cdnua05.hls.tv/679/hls/f62d71219200da4130d13b21d23fb23c/4867/stream.m3u8
+#EXTINF:-1 tvg-id="local.kinotaserialy" tvg-language="Ukrainian" group-title="Ukraine",КІНО ТА СЕРІАЛИ
+http://cdnua05.hls.tv/934/hls/8743361621b245838bee193c9ec28322/4867/stream.m3u8
+#EXTINF:-1 tvg-id="local.mashynachasu" tvg-language="Ukrainian" group-title="Ukraine",Машина часу
+http://cdnua05.hls.tv/635/hls/f62d71219200da4130d13b21d23fb23c/4901/stream.m3u8
+#EXTINF:-1 tvg-id="local.melodramy" tvg-language="Ukrainian" group-title="Ukraine",Мелодрами HD
+http://cdnua05.hls.tv/7211/hls/f62d71219200da4130d13b21d23fb23c/4903/stream.m3u8
+#EXTINF:-1 tvg-id="local.melodramy" tvg-language="Ukrainian" group-title="Ukraine",Мелодрами HD
+http://cdnua05.hls.tv/8211/hls/f62d71219200da4130d13b21d23fb23c/4903/stream.m3u8
+#EXTINF:-1 tvg-id="local.melodiiaint" tvg-language="Ukrainian" group-title="Ukraine",Мелодія Int
+http://online.melodiafm.ua/MelodiaFM_Int_Live
+#EXTINF:-1 tvg-id="local.myzukrainy" tvg-language="Ukrainian" group-title="Ukraine",Ми з України
+https://stream4.nadaje.com:9889/lux64
+#EXTINF:-1 tvg-id="local.myzukrainy" tvg-language="Ukrainian" group-title="Ukraine",Ми з України
+http://stream4.nadaje.com:9888/lux
+#EXTINF:-1 tvg-id="local.myukraina" tvg-language="Ukrainian" group-title="Ukraine",Ми+Україна HD
+https://api-tv.ipnet.ua/api/v1/manifest/2118742680.m3u8
+#EXTINF:-1 tvg-id="local.mistonadbuhom" tvg-language="Ukrainian" group-title="Ukraine",Місто над Бугом
+https://stream.mistonadbugom.com.ua/radiomistonadbugom
+#EXTINF:-1 tvg-id="local.nevyhadaniistorii" tvg-language="Ukrainian" group-title="Ukraine",Невигадані Історії
+http://cdnua05.hls.tv/210/hls/f62d71219200da4130d13b21d23fb23c/4902/stream.m3u8
+#EXTINF:-1 tvg-id="local.novosilky" tvg-language="Ukrainian" group-title="Ukraine",Новосілки ТБ
+http://filmtvgroup.hopto.org/novosilkiTB/index.m3u8?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3NjEwMDgwNzMsImV4cCI6MTc2MTA5NDQ3Mywic3ViIjoiQWRtaW4ifQ.q63jEFty3Ry19ORUfTNUPhkvCSFnFBk9mHhXIwaxgLQ
+#EXTINF:-1 tvg-id="local.ntkkolomyia" tvg-language="Ukrainian" group-title="Ukraine",НТК Коломия
+https://stream.ntktv.ua/s/ntk/ntk.m3u8?cur=tva.org.ua&key=3i277
+#EXTINF:-1 tvg-id="local.ntk" tvg-language="Ukrainian" group-title="Ukraine",НТК ТВ
+https://stream.ntktv.ua/s/ntk/ntk.m3u8
+#EXTINF:-1 tvg-id="local.ntkukraina" tvg-language="Ukrainian" group-title="Ukraine",НТК ТВ Україна
+http://stream.ntktv.ua/s/ntk/ntk.m3u8
+#EXTINF:-1 tvg-id="local.obshchestvennoenezavysymoe" tvg-language="Ukrainian" group-title="Ukraine",Общественное Независимое ТВ
+http://85.238.112.40:8810/hls_sec/239.33.75.33-.m3u8
+#EXTINF:-1 tvg-id="local.odynzavsikh" tvg-language="Ukrainian" group-title="Ukraine",Один За Всіх
+http://cdnua05.hls.tv/216/hls/f62d71219200da4130d13b21d23fb23c/4909/stream.m3u8
+#EXTINF:-1 tvg-id="local.odnohorazupidpoltavoiu" tvg-language="Ukrainian" group-title="Ukraine",Одного разу під Полтавою
+http://pl.online24.pm/play/1964/F6E1DD42544DD10/video.m3u8
+#EXTINF:-1 tvg-id="local.odruzheninaoslip" tvg-language="Ukrainian" group-title="Ukraine",Одружені НАОСЛІП+
+http://cdnua05.hls.tv/619/hls/f62d71219200da4130d13b21d23fb23c/4893/stream.m3u8
+#EXTINF:-1 tvg-id="local.odruzheninaoslip" tvg-language="Ukrainian" group-title="Ukraine",Одружені НАОСЛІП+
+http://cdnua05.hls.tv/6133/hls/f62d71219200da4130d13b21d23fb23c/4893/stream.m3u8
+#EXTINF:-1 tvg-id="local.operzavyklykom" tvg-language="Ukrainian" group-title="Ukraine",ОПЕР за викликом+
+http://cdnua05.hls.tv/614/hls/f62d71219200da4130d13b21d23fb23c/4889/stream.m3u8
+#EXTINF:-1 tvg-id="local.operzavyklykom" tvg-language="Ukrainian" group-title="Ukraine",ОПЕР за викликом+
+http://cdnua05.hls.tv/0941/hls/8743361621b245838bee193c9ec28322/4889/stream.m3u8
+#EXTINF:-1 tvg-id="local.orbita" tvg-language="Ukrainian" group-title="Ukraine",Орбіта
+http://ftp.orbita.dn.ua/hls/orbita.m3u8
+#EXTINF:-1 tvg-id="local.oreltareshka" tvg-language="Ukrainian" group-title="Ukraine",Орел та Решка
+http://cdnua05.hls.tv/679/hls/f62d71219200da4130d13b21d23fb23c/4872/stream.m3u8
+#EXTINF:-1 tvg-id="local.piatnytsiakremenchuk" tvg-language="Ukrainian" group-title="Ukraine",П'ятниця Кременчук
+http://radio.moa.org.ua/Friday
+#EXTINF:-1 tvg-id="local.paniankaselianka" tvg-language="Ukrainian" group-title="Ukraine",Панянка селянка
+http://cdnua05.hls.tv/6135/hls/f62d71219200da4130d13b21d23fb23c/4890/stream.m3u8
+#EXTINF:-1 tvg-id="local.paniankaselianka" tvg-language="Ukrainian" group-title="Ukraine",Панянка селянка
+http://cdnua05.hls.tv/6615/hls/f62d71219200da4130d13b21d23fb23c/4890/stream.m3u8
+#EXTINF:-1 tvg-id="local.pervyihorodskoi" tvg-language="Ukrainian" group-title="Ukraine",Первый Городской HD
+http://91.194.79.46:8081/stream1/channel1/playlist.m3u8
+#EXTINF:-1 tvg-id="local.pershyi" tvg-language="Ukrainian" group-title="Ukraine",ПЕРШИЙ
+https://ext.cdn.nashnet.tv/228.0.2.45/index.m3u8
+#EXTINF:-1 tvg-id="local.pershyi" tvg-language="Ukrainian" group-title="Ukraine",ПЕРШИЙ
+https://api-tv.ipnet.ua/api/v1/manifest/2118742505.m3u8
+#EXTINF:-1 tvg-id="local.pershyizakhidnyi" tvg-language="Ukrainian" group-title="Ukraine",Перший західний HD
+https://ext.cdn.nashnet.tv/228.0.0.162/index.m3u8
+#EXTINF:-1 tvg-id="local.pershyikabelnyi" tvg-language="Ukrainian" group-title="Ukraine",Перший Кабельний
+http://91.226.35.134:8081/PK
+#EXTINF:-1 tvg-id="local.priamyi" tvg-language="Ukrainian" group-title="Ukraine",Прямий HD
+https://ext.cdn.nashnet.tv/228.0.0.122/index.m3u8
+#EXTINF:-1 tvg-id="local.priamyitim" tvg-language="Ukrainian" group-title="Ukraine",Прямий TIM
+http://cdn10.live-tv.od.ua:8081/riood/tisod-abr/riood/tisod504/playlist.m3u8
+#EXTINF:-1 tvg-id="local.realitishouvriatuitenashusimiu" tvg-language="Ukrainian" group-title="Ukraine",Реаліті Шоу Врятуйте нашу сімю
+http://cdnua05.hls.tv/631/hls/f62d71219200da4130d13b21d23fb23c/4899/stream.m3u8
+#EXTINF:-1 tvg-id="local.realitishouvriatuitenashusimiu" tvg-language="Ukrainian" group-title="Ukraine",Реаліті Шоу Врятуйте нашу сімю
+http://cdnua05.hls.tv/6321/hls/f62d71219200da4130d13b21d23fb23c/4899/stream.m3u8
+#EXTINF:-1 tvg-id="local.reporter" tvg-language="Ukrainian" group-title="Ukraine",Репортер
+http://cdn1.live-tv.od.ua:8081/31chod/31chod-abr/31chod/31chod/playlist.m3u8
+#EXTINF:-1 tvg-id="local.reporter" tvg-language="Ukrainian" group-title="Ukraine",Репортер
+http://cdn1.live-tv.od.ua:8081/31chod/31chod-abr/playlist.m3u8
+#EXTINF:-1 tvg-id="local.rizdvo" tvg-language="Ukrainian" group-title="Ukraine",Різдво
+http://pl.online24.pm/play/50125/F6E1DD42544DD10/video.m3u8
+#EXTINF:-1 tvg-id="local.svitnavyvorit" tvg-language="Ukrainian" group-title="Ukraine",Світ на виворіт+
+http://cdnua05.hls.tv/0538/hls/8743361621b245838bee193c9ec28322/4886/stream.m3u8
+#EXTINF:-1 tvg-id="local.svitnavyvorit" tvg-language="Ukrainian" group-title="Ukraine",Світ на виворіт+
+http://cdnua05.hls.tv/611/hls/f62d71219200da4130d13b21d23fb23c/4886/stream.m3u8
+#EXTINF:-1 tvg-id="local.serial" tvg-language="Ukrainian" group-title="Ukraine",Серіал
+http://cdnua05.hls.tv/6516/hls/f62d71219200da4130d13b21d23fb23c/4891/stream.m3u8
+#EXTINF:-1 tvg-id="local.serial" tvg-language="Ukrainian" group-title="Ukraine",Серіал
+http://cdnua05.hls.tv/6816/hls/f62d71219200da4130d13b21d23fb23c/4891/stream.m3u8
+#EXTINF:-1 tvg-id="local.slidstvovedutekstrasensy" tvg-language="Ukrainian" group-title="Ukraine",Слідство ведуть екстрасенси
+http://cdnua05.hls.tv/624/hls/f62d71219200da4130d13b21d23fb23c/4897/stream.m3u8
+#EXTINF:-1 tvg-id="local.sontse" tvg-language="Ukrainian" group-title="Ukraine",Сонце
+https://ext.cdn.nashnet.tv/228.0.0.165/index.m3u8
+#EXTINF:-1 tvg-id="local.stosuietsiakozhnoho" tvg-language="Ukrainian" group-title="Ukraine",Стосується кожного
+http://cdnua05.hls.tv/0949/hls/8743361621b245838bee193c9ec28322/4882/stream.m3u8
+#EXTINF:-1 tvg-id="local.stosuietsiakozhnoho" tvg-language="Ukrainian" group-title="Ukraine",Стосується кожного
+http://cdnua05.hls.tv/679/hls/f62d71219200da4130d13b21d23fb23c/4882/stream.m3u8
+#EXTINF:-1 tvg-id="local.suppermama" tvg-language="Ukrainian" group-title="Ukraine",Суппер МАМА
+http://cdnua05.hls.tv/634/hls/f62d71219200da4130d13b21d23fb23c/4900/stream.m3u8
+#EXTINF:-1 tvg-id="local.suppermama" tvg-language="Ukrainian" group-title="Ukraine",Суппер МАМА
+http://cdnua05.hls.tv/6314/hls/f62d71219200da4130d13b21d23fb23c/4900/stream.m3u8
+#EXTINF:-1 tvg-id="local.suspilnekyiv" tvg-language="Ukrainian" group-title="Ukraine",Суспільне КИЇВ HD
+http://cdnua05.hls.tv/777/hls/f62d71219200da4130d13b21d23fb23c/162/stream.m3u8
+#EXTINF:-1 tvg-id="local.suspilnekyiv" tvg-language="Ukrainian" group-title="Ukraine",Суспільне КИЇВ HD
+https://ext.cdn.nashnet.tv/228.0.0.41/index.m3u8
+#EXTINF:-1 tvg-id="local.suspilnekrym" tvg-language="Ukrainian" group-title="Ukraine",Суспільне Крим TV
+https://ext.cdn.nashnet.tv/228.0.0.71/index.m3u8
+#EXTINF:-1 tvg-id="local.suspilnekultura" tvg-language="Ukrainian" group-title="Ukraine",Суспільне Культура HD TV
+https://ext.cdn.nashnet.tv/228.0.0.141/index.m3u8
+#EXTINF:-1 tvg-id="local.suspilneternopil" tvg-language="Ukrainian" group-title="Ukraine",Суспільне Тернопіль
+http://cdnua05.hls.tv/647/hls/f62d71219200da4130d13b21d23fb23c/4789/stream.m3u8
+#EXTINF:-1 tvg-id="local.simeinimelodramy" tvg-language="Ukrainian" group-title="Ukraine",Сімейні мелодрами+
+http://cdnua05.hls.tv/617/hls/f62d71219200da4130d13b21d23fb23c/4892/stream.m3u8
+#EXTINF:-1 tvg-id="local.simeinimelodramy" tvg-language="Ukrainian" group-title="Ukraine",Сімейні мелодрами+
+http://cdnua05.hls.tv/0538/hls/8743361621b245838bee193c9ec28322/4892/stream.m3u8
+#EXTINF:-1 tvg-id="local.tva" tvg-language="Ukrainian" group-title="Ukraine",ТВА
+http://rtsp.cdn.ua/tva.ua_live/_definst_/livestream/playlist.m3u8
+#EXTINF:-1 tvg-id="local.tva" tvg-language="Ukrainian" group-title="Ukraine",ТВА
+https://hls.cdn.ua/tva.ua_live/livestream/chunklist.m3u8
+#EXTINF:-1 tvg-id="local.tva" tvg-language="Ukrainian" group-title="Ukraine",ТВА
+http://hls.cdn.ua/tva.ua_live/_definst_/livestream/playlist.m3u8
+#EXTINF:-1 tvg-id="local.tvatva" tvg-language="Ukrainian" group-title="Ukraine",ТВА tva in-ua
+http://rtsp.cdn.ua/tva.ua_live/_definst_/livestream/playlist.m3u8
+#EXTINF:-1 tvg-id="local.tvachernovtsy" tvg-language="Ukrainian" group-title="Ukraine",ТВА Черновцы
+http://hls.cdn.ua/tva.ua_live/_definst_/livestream/playlist.m3u8
+#EXTINF:-1 tvg-id="local.tvachernivtsi" tvg-language="Ukrainian" group-title="Ukraine",ТВА Чернівці
+http://hls.cdn.ua/tva.ua_live/_definst_/livestream/playlist.m3u8
+#EXTINF:-1 tvg-id="local.tvachernivtsi" tvg-language="Ukrainian" group-title="Ukraine",ТВА Чернівці
+http://hls.cdn.ua/tva.ua_live/livestream/chunklist_w396178779.m3u8
+#EXTINF:-1 tvg-id="local.tviiserial" tvg-language="Ukrainian" group-title="Ukraine",Твій серіал
+http://cdnua05.hls.tv/934/hls/8743361621b245838bee193c9ec28322/4870/stream.m3u8
+#EXTINF:-1 tvg-id="local.tviiserial" tvg-language="Ukrainian" group-title="Ukraine",Твій серіал
+http://cdnua05.hls.tv/935/hls/8743361621b245838bee193c9ec28322/4870/stream.m3u8
+#EXTINF:-1 tvg-id="local.telekanalreporterodessa" tvg-language="Ukrainian" group-title="Ukraine",Телеканал Репортер Одесса
+http://cdn1.live-tv.od.ua:8081/31chod/31chod-abr/31chod/31chod/playlist.m3u8
+#EXTINF:-1 tvg-id="local.tys" tvg-language="Ukrainian" group-title="Ukraine",ТИС
+http://cdn10.live-tv.od.ua:8081/riood/tisod-abr/riood/tisod504/playlist.m3u8
+#EXTINF:-1 tvg-id="local.tretiikanalkultura" tvg-language="Ukrainian" group-title="Ukraine",Третій канал Культура
+http://radio.nrcu.gov.ua:8000/ur3-mp3-m
+#EXTINF:-1 tvg-id="local.trkkyiv" tvg-language="Ukrainian" group-title="Ukraine",ТРК Київ
+http://developer.ottclub.xyz/iptv/FQ9M6P6NLZ42QH/1045/index.m3u8
+#EXTINF:-1 tvg-id="local.trkreporter" tvg-language="Ukrainian" group-title="Ukraine",ТРК Репортер
+http://cdn1.live-tv.od.ua:8081/31chod/31chod-abr/31chod/31chod/playlist.m3u8
+#EXTINF:-1 tvg-id="local.trktva" tvg-language="Ukrainian" group-title="Ukraine",ТРК ТВА
+http://rtsp.cdn.ua/tva.ua_live/_definst_/livestream/playlist.m3u8
+#EXTINF:-1 tvg-id="local.tis" tvg-language="Ukrainian" group-title="Ukraine",ТІС
+http://cdn10.live-tv.od.ua:8081/riood/tisod-abr/riood/tisod504/playlist.m3u8
+#EXTINF:-1 tvg-id="local.ukraina" tvg-language="Ukrainian" group-title="Ukraine",Україна
+http://developer.ottclub.xyz/iptv/FQ9M6P6NLZ42QH/1011/index.m3u8
+#EXTINF:-1 tvg-id="local.unian" tvg-language="Ukrainian" group-title="Ukraine",УНІАН
+http://developer.ottclub.xyz/iptv/FQ9M6P6NLZ42QH/1023/index.m3u8
+#EXTINF:-1 tvg-id="local.khitboiovyk" tvg-language="Ukrainian" group-title="Ukraine",Хіт Бойовик
+http://pl.online24.pm/play/1951/F6E1DD42544DD10/video.m3u8
+#EXTINF:-1 tvg-id="local.khitkomediia" tvg-language="Ukrainian" group-title="Ukraine",Хіт Комедія
+http://pl.online24.pm/play/1952/F6E1DD42544DD10/video.m3u8
+#EXTINF:-1 tvg-id="local.chernovytskyipromyn" tvg-language="Ukrainian" group-title="Ukraine",Черновицкий Проминь HD
+http://langate.tv/promin/live_720/index.m3u8
+#EXTINF:-1 tvg-id="local.chornomorske" tvg-language="Ukrainian" group-title="Ukraine",ЧОРНОМОРСКЕ HD TV
+https://ext.cdn.nashnet.tv/228.0.0.136/index.m3u8
+#EXTINF:-1 tvg-id="local.chornomorskatrk" tvg-language="Ukrainian" group-title="Ukraine",Чорноморська ТРК
+https://ext.cdn.nashnet.tv/228.0.0.136/index.m3u8
+#EXTINF:-1 tvg-id="local.eko" tvg-language="Ukrainian" group-title="Ukraine",Эко-ТВ
+https://ext.cdn.nashnet.tv/228.0.1.60/index.m3u8
+#EXTINF:-1 tvg-id="local.iedyninovyny" tvg-language="Ukrainian" group-title="Ukraine",Єдині новини
+https://online-news.radioplayer.ua/RadioNews
+#EXTINF:-1 tvg-id="AvtoradioUkraine.ua",Avtoradio Ukraine
+https://iptv.prosto.tv/ch392/index.m3u8
+#EXTINF:-1 tvg-id="Black.ua",Black
+http://cdn.shinda.tv/lb0/Sony_Turbo/mpegts?token=HHbkdhO
+#EXTINF:-1 tvg-id="Channel12.ua",Channel 12
+https://12channel.bonus-tv.ru/cdn/12channel/playlist.m3u8
+#EXTINF:-1 tvg-id="Channel8.ua",Channel 8
+http://usa.login.in.th:1935/ch8/ch8/playlist.m3u8
+#EXTINF:-1 tvg-id="ContinentE.ua",Continent E
+http://cdnua05.hls.tv/922/hls/8743361621b245838bee193c9ec28322/4834/stream.m3u8
+#EXTINF:-1 tvg-id="DonechchynaTV.ua",Donechchyna TV
+https://lowa8026-cmyk.github.io/Ukraine/DonechchynaTV.m3u8
+#EXTINF:-1 tvg-id="DynamoKyivTV.ua",Dynamo Kyiv TV
+http://lb.wisp.cat/lb0/Dynamo_Kiev_HD/mpegts?token=HHbkdhO
+#EXTINF:-1 tvg-id="EUMusic.ua",EU Music
+https://iptv.prosto.tv/ch134/tracks-v2a1/1.m3u8?21yo=1&cs_track=false&e=1782900912&id=742347&ip=104.28.156.59&live=1&secret=vu2y5m72&ses=ca0cfbf5db9d8003&st=j-Ja2visdxrjH_8haQZjNg&uid=vu2y5m72
+#EXTINF:-1 tvg-id="Equalympic.ua",Equalympic
+http://lb.wisp.cat/lb0/Equalympic/mpegts?token=HHbkdhO
+#EXTINF:-1 tvg-id="INTV.ua",INTV
+http://tv1.intv.mk:1935/live/intv/index.m3u8
+#EXTINF:-1 tvg-id="InRatingTV.ua",InRating TV
+http://s.only4.tv/7649/index.m3u8?token=PgrmaQzfrT
+#EXTINF:-1 tvg-id="Lale.ua",Lale
+http://s.only4.tv/0189/index.m3u8?token=PgrmaQzfrT
+#EXTINF:-1 tvg-id="LanetTV.ua",Lanet.TV
+https://kiev1-cdn.lanet.tv/live/1008.m3u8
+#EXTINF:-1 tvg-id="Live.ua",Live
+http://s.only4.tv/9004/index.m3u8?token=PgrmaQzfrT
+#EXTINF:-1 tvg-id="LuxFM.ua",Lux FM
+https://streamvideo.luxnet.ua/lux/smil:lux.stream.smil/playlist.m3u8?n=76dae084a02ab7c76e15
+#EXTINF:-1 tvg-id="LuxTV.ua",Lux TV
+http://live.tvlux.sk:1935/lux/lux.stream/playlist.m3u8
+#EXTINF:-1 tvg-id="MTM.ua",MTM
+https://angel.btbn.tv:5443/mtmtv/streams/live.m3u8
+#EXTINF:-1 tvg-id="MiladyTelevision.ua",Milady Television
+https://ext.cdn.nashnet.tv/228.0.1.45/index.m3u8
+#EXTINF:-1 tvg-id="NTA.ua",NTA
+http://live.youtv.workers.dev/?ID=3596
+#EXTINF:-1 tvg-id="OTSE.ua",OTSE
+https://adpnetworkhd-cmd.github.io/iptv/OtseHD.m3u8
+#EXTINF:-1 tvg-id="ObozrevatelTV.ua",Obozrevatel TV
+https://ext.cdn.nashnet.tv/228.0.0.148/index.m3u8
+#EXTINF:-1 tvg-id="OnePlanet.ua",One Planet
+http://lb.wisp.cat/lb0/OnePlanet_plus/mpegts?token=HHbkdhO
+#EXTINF:-1 tvg-id="PershyiZahidnyi.ua",Pershyi Zahidnyi
+https://ext.cdn.nashnet.tv/228.0.0.162/index.m3u8
+#EXTINF:-1 tvg-id="Pershyiavtomobilnyi.ua",Pershyi avtomobilnyi
+https://adpnetworkhd-cmd.github.io/iptv/Pershyiavtomobilnyi.m3u8
+#EXTINF:-1 tvg-id="PravdaTUTLviv.ua",PravdaTUT Lviv
+https://iptv.prosto.tv/ch192/tracks-v1a1/mono.m3u8?21yo=1&e=1782901327&id=742347&ip=104.28.156.59&live=1&secret=vu2y5m72&st=bflIqYjnSIr75ACfgV-mug
+#EXTINF:-1 tvg-id="Priamyi.ua",Priamyi
+https://ext.cdn.nashnet.tv/228.0.0.122/index.m3u8
+#EXTINF:-1 tvg-id="Provence.ua",Provence
+http://cdnua05.hls.tv/0436/hls/8743361621b245838bee193c9ec28322/4875/stream.m3u8
+#EXTINF:-1 tvg-id="Skrypinua.ua",Skrypin.ua
+https://open-cdn.lanet.tv/play/skrypin.m3u8
+#EXTINF:-1 tvg-id="SonataTV.ua",Sonata TV
+https://ext.cdn.nashnet.tv/228.0.0.24/index.m3u8
+#EXTINF:-1 tvg-id="SuspilneChernihiv.ua",Suspilne. Chernihiv
+http://cdnua05.hls.tv/645/hls/f62d71219200da4130d13b21d23fb23c/4791/stream.m3u8
+#EXTINF:-1 tvg-id="SuspilneChernivtsi.ua",Suspilne. Chernivtsi
+http://cdnua05.hls.tv/643/hls/f62d71219200da4130d13b21d23fb23c/4790/stream.m3u8
+#EXTINF:-1 tvg-id="SuspilneDnipro.ua",Suspilne. Dnipro
+http://cdnua05.hls.tv/648/hls/f62d71219200da4130d13b21d23fb23c/4786/stream.m3u8
+#EXTINF:-1 tvg-id="SuspilneDonbas.ua",Suspilne. Donbas
+https://iptv.prosto.tv/ch191/tracks-v1a1/mono.m3u8?21yo=1&e=1783350581&id=742347&ip=178.136.40.86&live=1&secret=vu2y5m72&st=FOBLjQZsAj97omf627Quzg
+#EXTINF:-1 tvg-id="SuspilneIvanoFrankivsk.ua",Suspilne. Ivano-Frankivsk
+https://iptv.prosto.tv/ch96/tracks-v1a1/mono.m3u8?live=1&ip=5.63.189.224&id=921239&secret=z6vxuhnm&21yo=0&e=1783094347&st=kGRjEFP8_5qe3vEINbXwBQ
+#EXTINF:-1 tvg-id="SuspilneKhmelnytskyi.ua",Suspilne. Khmelnytskyi
+http://cdnua05.hls.tv/632/hls/f62d71219200da4130d13b21d23fb23c/4800/stream.m3u8
+#EXTINF:-1 tvg-id="SuspilneKropyvnytskyi.ua",Suspilne. Kropyvnytskyi
+http://cdnua05.hls.tv/650/hls/f62d71219200da4130d13b21d23fb23c/4788/stream.m3u8
+#EXTINF:-1 tvg-id="SuspilneKrym.ua",Suspilne. Krym
+https://ext.cdn.nashnet.tv/228.0.0.71/index.m3u8
+#EXTINF:-1 tvg-id="SuspilneKultura.ua",Suspilne. Kultura
+https://ext.cdn.nashnet.tv/228.0.0.141/index.m3u8
+#EXTINF:-1 tvg-id="SuspilneLutsk.ua",Suspilne. Lutsk
+https://iptv.prosto.tv/ch222/tracks-v1a1/mono.m3u8?21yo=0&e=1783108254&id=921233&ip=178.136.40.86&live=1&secret=9szoe89y&st=xvdqQHExhHEv8FDqvbjDbg
+#EXTINF:-1 tvg-id="SuspilneMykolaiv.ua",Suspilne. Mykolaiv
+https://iptv.prosto.tv/ch211/tracks-v1a1/mono.m3u8?live=1&ip=5.63.189.224&id=921239&secret=f8z1l7gk&21yo=0&e=1783194414&st=Lz1QtjfblUmkawUbk1Mx6w
+#EXTINF:-1 tvg-id="SuspilneOdesa.ua",Suspilne. Odesa
+http://cdnua05.hls.tv/653/hls/f62d71219200da4130d13b21d23fb23c/4833/stream.m3u8
+#EXTINF:-1 tvg-id="SuspilneRivne.ua",Suspilne. Rivne
+https://iptv.prosto.tv/ch229/tracks-v1a1/mono.m3u8?21yo=1&live=1&ip=5.63.189.224&id=921239&secret=f8z1l7gk&e=1783195240&st=4RqJ6hzZ9REJQe0f8U3fTw
+#EXTINF:-1 tvg-id="SuspilneSport.ua",Suspilne. Sport
+https://iptv.prosto.tv/ch112/tracks-v2a1/mono.m3u8?21yo=0&e=1783247457&id=921233&ip=178.136.40.86&live=1&secret=9szoe89y&st=jPS6nYqNZLDECF8uSDa74g
+#EXTINF:-1 tvg-id="SuspilneSumy.ua",Suspilne. Sumy
+http://cdnua05.hls.tv/630/hls/f62d71219200da4130d13b21d23fb23c/4798/stream.m3u8
+#EXTINF:-1 tvg-id="SuspilneTernopil.ua",Suspilne. Ternopil
+http://cdnua05.hls.tv/647/hls/f62d71219200da4130d13b21d23fb23c/4789/stream.m3u8
+#EXTINF:-1 tvg-id="SuspilneVinnytsia.ua",Suspilne. Vinnytsia
+https://iptv.prosto.tv/ch188/tracks-v1a1/mono.m3u8?21yo=0&e=1783247585&id=921233&ip=178.136.40.86&live=1&secret=9szoe89y&st=u4uN-dkUOQb4cDe7lNCaeg
+#EXTINF:-1 tvg-id="SuspilneZaporizhzhya.ua",Suspilne. Zaporizhzhya
+https://iptv.prosto.tv/ch187/tracks-v1a1/mono.m3u8?21yo=1&live=1&ip=5.63.189.224&id=921239&secret=z6vxuhnm&e=1783094937&st=EzFtzQG2T03aIIo4Sdn-OQ
+#EXTINF:-1 tvg-id="SuspilneZhytomyr.ua",Suspilne. Zhytomyr
+http://cdnua05.hls.tv/647/hls/f62d71219200da4130d13b21d23fb23c/4787/stream.m3u8
+#EXTINF:-1 tvg-id="Svarozhychy.ua",Svarozhychy
+https://iptv.prosto.tv/ch168/index.m3u8
+#EXTINF:-1 tvg-id="TRKKrug.ua",TRK Krug
+http://cdn1.live-tv.od.ua:8081/krugod/krugod-abr/krugod/krugod/playlist.m3u8
+#EXTINF:-1 tvg-id="UAFashionTV.ua",UA Fashion TV
+https://iptv.prosto.tv/ch216/index.m3u8
+#EXTINF:-1 tvg-id="UAMusic.ua",UA Music
+https://iptv.prosto.tv/ch133/tracks-v2a1/1.m3u8?live=1&ip=178.136.40.86&id=921233&secret=9szoe89y&ses=222194235acf2898&uid=9szoe89y&cs_track=false&e=1783247230&st=uVQZwetlK44ZjJhTBpFGiQ
+#EXTINF:-1 tvg-id="UkraineWorldNews.ua",Ukraine World News
+http://ott.watch/stream/E9LDH2ZCN7/441.m3u8
+#EXTINF:-1 tvg-id="XSport.ua",XSport
+http://cdnua05.hls.tv/947/hls/8743361621b245838bee193c9ec28322/4807/stream.m3u8
+#EXTINF:-1 tvg-id="4everCinema.ua",4ever Cinema
+http://lb.wisp.cat/lb0/4Ever_Cinema_HD/mpegts?token=HHbkdhO
+#EXTINF:-1 tvg-id="4everDrama.ua",4ever Drama
+http://lb.wisp.cat/lb0/4Ever_Drama_HD/mpegts?token=HHbkdhO
+#EXTINF:-1 tvg-id="4everMusic.ua",4ever Music
+http://s.only4.tv/5512/index.m3u8?token=PgrmaQzfrT
+#EXTINF:-1 tvg-id="4everTheater.ua",4ever Theater
+http://cdnua05.hls.tv/923/hls/8743361621b245838bee193c9ec28322/4837/stream.m3u8
+#EXTINF:-1 tvg-id="Bigudi.ua",Bigudi
+https://adpnetworkhd-cmd.github.io/iptv/Bigudi.m3u8
+#EXTINF:-1 tvg-id="CinePlus.ua",Cine+
+http://s.only4.tv/6504/index.m3u8?token=PgrmaQzfrT
+#EXTINF:-1 tvg-id="CinePlusHit.ua",Cine+ Hit
+http://s.only4.tv/6506/index.m3u8?token=PgrmaQzfrT
+#EXTINF:-1 tvg-id="CinePlusKids.ua",Cine+ Kids
+http://s.only4.tv/6507/index.m3u8?token=PgrmaQzfrT
+#EXTINF:-1 tvg-id="CinePlusLegend.ua",Cine+ Legend
+http://lb.wisp.cat/lb0/CINE_LEGEND_LW/mpegts?token=HHbkdhO
+#EXTINF:-1 tvg-id="ComedyCentral.ua",Comedy Central
+http://23.237.104.106:8080/USA_COMEDY_CENTRAL/index.m3u8
+#EXTINF:-1 tvg-id="EnterFilm.ua",Enter-Film
+https://adpnetworkhd-cmd.github.io/iptv/Enterfilm.m3u8
+#EXTINF:-1 tvg-id="FootballHub.ua",Football Hub
+http://lb.wisp.cat/lb0/Football_Hub/mpegts?token=HHbkdhO
+#EXTINF:-1 tvg-id="ICTV2.ua",ICTV2
+http://ott.watch/stream/PBU2IRPDLW/368.m3u8
+#EXTINF:-1 tvg-id="K2.ua",K2
+https://d1pmpe0hs35ka5.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-39hsskpppgf72/K2_IT.m3u8
+#EXTINF:-1 tvg-id="Kinoliving.ua",Kinoliving
+http://cdnua05.hls.tv/hls/8743361621b245838bee193c9ec28322/4805/stream.m3u8
+#EXTINF:-1 tvg-id="Kinowood.ua",Kinowood
+http://lb.wisp.cat/lb0/KINOWOOD_HD/mpegts?token=HHbkdhO
+#EXTINF:-1 tvg-id="MEGOGOSport.ua",MEGOGO Sport
+http://471ccec7.tvclub.xyz/iptv/BUYS9YTNABMC25/31612/index.m3u8
+#EXTINF:-1 tvg-id="Metro.pl",Metro
+http://lb.wisp.cat/lb0/PL_Metro/mpegts?token=HHbkdhO
+#EXTINF:-1 tvg-id="NikiJunior.ua",Niki Junior
+https://iptv.prosto.tv/ch72/index.m3u8
+#EXTINF:-1 tvg-id="NikiKids.ua",Niki Kids
+http://iptv.prosto.tv:7000/ch71/video.m3u8
+#EXTINF:-1 tvg-id="PLUSPLUS.ua",PLUSPLUS
+https://adpnetworkhd-cmd.github.io/iptv/PlusPlus.m3u8
+#EXTINF:-1 tvg-id="PixelTV.ua",Pixel TV
+https://adpnetworkhd-cmd.github.io/iptv/PikselTV.m3u8
+#EXTINF:-1 tvg-id="Prokino.ua",Prokino
+http://lb.wisp.cat/lb0/PROKINO_HD/mpegts?token=HHbkdhO
+#EXTINF:-1 tvg-id="STB.ua",STB
+http://cdnua03.hls.tv/133/hls/37a7d70ef2fcf08bcd712e4397c7d5c9/4592/stream.m3u8
+#EXTINF:-1 tvg-id="Sport1.ua",Sport 1
+http://212.102.38.45/live/test_sport1_25p/playlist.m3u8
+#EXTINF:-1 tvg-id="Sport2.ua",Sport 2
+http://185.98.211.8:81/sport2/index.m3u8?token=test
+#EXTINF:-1 tvg-id="Sport3.ua",Sport 3
+http://ott.watch/stream/33QU9445PB/394.m3u8
+#EXTINF:-1 tvg-id="StarCinema.ua",Star Cinema
+http://lb.wisp.cat/lb0/StarCinema_UA_SD/mpegts?token=HHbkdhO
+#EXTINF:-1 tvg-id="SuperPlus.ua",Super+
+https://iptv.prosto.tv/ch382/tracks-v1a1/1.m3u8?live=1&ip=178.136.40.86&id=921233&secret=9szoe89y&ses=365ec247746bd22d&uid=9szoe89y&cs_track=false&e=1783162263&st=9GLxg7DNUXR_MCB9X30Qew
+#EXTINF:-1 tvg-id="ViasatHistory.ua",Viasat History
+http://46.32.176.50/viasathistory/index.m3u8
+#EXTINF:-1 tvg-id="VivaLatino.ua",¡Viva Latino!
+http://lb.wisp.cat/lb0/VivaLatino_HD/mpegts?token=HHbkdhO
