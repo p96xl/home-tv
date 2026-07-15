@@ -73,22 +73,22 @@ Then tick the guide provider for the tuner and refresh guide data. The EPG's cha
 
 ### Real programme listings (optional)
 
-Out of the box the guide shows rolling **placeholder** blocks (channel name, "no guide data available") — enough to populate the grid. For real "what's on now/next" listings, run [iptv-org/epg](https://github.com/iptv-org/epg)'s grabber and drop its output at `guide.xml` in the repo root; `server.py` merges it automatically (real programmes for covered channels, placeholder for the rest).
+Out of the box the guide shows rolling **placeholder** blocks (channel name, "no guide data available") — enough to populate the grid. For real "what's on now/next", drop a `guide.xml` (XMLTV from [iptv-org/epg](https://github.com/iptv-org/epg)'s grabber) in the repo root; `server.py` merges it automatically — real programmes for covered channels, placeholder for the rest, picked up on the next request (no restart).
 
-`epg/refresh.sh` does the whole thing — clones/updates the grabber, builds a channel list matching exactly what your server serves, grabs, and writes `guide.xml`:
+The grabber loads iptv-org's whole API into memory, which OOMs a small server, so **`.github/workflows/epg.yml` runs it on GitHub's runners** instead: nightly it reads your server's channel list, grabs listings, and force-pushes `guide.xml` to an orphan **`epg-data`** branch. Your server just pulls that one file.
 
-```bash
-# needs node/npm + python3, and the server importable from the repo root (dist/ built)
-./epg/refresh.sh
-```
+One-time setup:
 
-Then run it daily from cron:
+1. Repo → **Settings → Secrets and variables → Actions → Variables** → add `HOMETV_URL` = your public server URL (e.g. `https://tv.example.com`).
+2. Repo → **Settings → Actions → General → Workflow permissions** → **Read and write** (so the Action can push the branch).
+3. Run it once: repo **Actions → EPG → Run workflow**. Confirm the `epg-data` branch appears with a `guide.xml`.
+4. On the server, cron a daily fetch (after the 03:00 UTC grab):
 
 ```cron
-0 4 * * *  /path/to/home-tv/epg/refresh.sh >> /path/to/home-tv/logs/epg.log 2>&1
+0 5 * * *  curl -fsS -o /path/to/home-tv/guide.xml https://raw.githubusercontent.com/OWNER/REPO/epg-data/guide.xml
 ```
 
-Coverage depends on your filters — for a Ukrainian set, ~50 channels have a real guide source (via iptv-org's `guides.json`); the rest stay on placeholder. `local.*` channels have no real source and are always placeholder.
+Coverage depends on your filters — for a Ukrainian set, ~47 channels have a real guide source (via iptv-org's `guides.json`); the rest stay on placeholder. `local.*` channels have no real source and are always placeholder.
 
 ## Chromecast
 

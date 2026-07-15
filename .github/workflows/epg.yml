@@ -1,0 +1,34 @@
+name: EPG
+# Grab real programme listings on GitHub's runners (not your box) and publish guide.xml to the
+# orphan `epg-data` branch. The server curls that file daily — see README "Real programme listings".
+on:
+  schedule:
+    - cron: '0 3 * * *'   # daily 03:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  grab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build channel list from the live server
+        run: python3 epg/build_channels.py "${{ vars.HOMETV_URL }}" > channels.xml
+
+      - name: Grab EPG with iptv-org/epg
+        run: |
+          git clone --depth 1 https://github.com/iptv-org/epg.git grabber
+          cd grabber && npm install --no-audit --no-fund
+          npm run grab --- --channels=../channels.xml --days=2 --maxConnections=5 --output=../guide.xml
+
+      - name: Publish guide.xml to epg-data branch
+        run: |
+          mkdir pub && cp guide.xml pub/
+          cd pub
+          git init -q && git checkout -q -b epg-data
+          git add guide.xml
+          git -c user.email=actions@github.com -c user.name=github-actions commit -q -m "EPG $(date -u +%F)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" epg-data
