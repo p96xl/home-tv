@@ -18,6 +18,10 @@ jobs:
           echo "channels.xml: $(grep -c '<channel ' channels.xml) channels"
 
       - name: Grab EPG with iptv-org/epg
+        env:
+          # iptv-org/epg loads its whole API into memory and OOMs Node's default ~4GB heap, writing
+          # only a partial guide. The runner has ~16GB — give V8 room to finish the full grab.
+          NODE_OPTIONS: --max-old-space-size=8192
         run: |
           git clone --depth 1 https://github.com/iptv-org/epg.git grabber
           cd grabber && npm install --no-audit --no-fund
