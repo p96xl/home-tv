@@ -10,9 +10,11 @@ Powered by [iptv-org](https://github.com/iptv-org/iptv) and [Free-TV/IPTV](https
 - TV-style keyboard navigation (↑ ↓)
 - Live/dead stream indicators — updated as you watch
 - Channel logos, numbers, and status dots
-- M3U playlist link in settings for IPTV apps like Tivimate etc.
+- M3U playlist link in settings for IPTV apps like Tivimate, Jellyfin, etc.
 - M3U playlist link will automatically update the channel list when 'Push Settings to Server' button is pressed
 - Filters are inclusive or exclusive for Country, Language, Catagory, Quality
+- One entry per channel with server-side source fallback — no duplicate rows in Jellyfin
+- XMLTV guide endpoint (`/epg.xml`) so Jellyfin's Live TV Guide populates
 
 ## Screenshots
 
@@ -42,20 +44,34 @@ npm run build            # creates the dist/ folder the server serves
 uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
-## Chromecast
+## Playlist URLs
 
-Get a Chromecast with Google TV, install an M3U streamer like Tivimate, and paste the M3U URL from Tivimate URL button on the top right.
+The server exposes two flavours of the M3U, both **one entry per channel** (no duplicate rows for a channel that has several stream sources):
 
-For Jellyfin, m3u-ip.tv, or any browser-based player use http://YOUR-SERVER:8000/playlist.m3u — one entry per channel, every source tried server-side behind a single `/live` URL (so duplicate channels collapse into one with automatic fallback).
-For Tivimate and other native apps that want raw stream URLs use http://YOUR-SERVER:8000/playlist.m3u?direct=true (one entry per channel, primary URL only).
+| URL | Use for | How streams are served |
+|-----|---------|------------------------|
+| `http://YOUR-SERVER:8000/playlist.m3u` | Jellyfin, m3u-ip.tv, browser players | Each channel points at `/live?n=<number>`, which tries **every source in order server-side** and falls back automatically if one is dead. Streams are proxied through this server. |
+| `http://YOUR-SERVER:8000/playlist.m3u?direct=true` | Tivimate and other native apps that want raw URLs | Emits the channel's **primary stream URL only** — no proxy, no fallback. |
+
+Whatever you change in the app's filters is baked into these playlists after you press **Push Settings to Server**.
 
 ## Jellyfin
 
-**Tuner:** Dashboard → Live TV → Tuner Devices → Add → **M3U Tuner** → `http://YOUR-SERVER:8000/playlist.m3u`
+**1. Tuner** — Dashboard → Live TV → **Tuner Devices** → Add → **M3U Tuner**
+→ `http://YOUR-SERVER:8000/playlist.m3u`
 
-**Guide:** Dashboard → Live TV → TV Guide Data Providers → Add → **XMLTV** → `http://YOUR-SERVER:8000/epg.xml`, then tick it for the tuner and refresh guide data.
+Each channel shows up **once**, with all its stream sources tried behind the scenes — no more three-of-the-same-channel.
 
-The EPG channel ids match the playlist's `tvg-id`s, so Jellyfin lines them up automatically. Note: there's no real programme data — the guide shows rolling placeholder blocks so the grid populates and channels are launchable. Real schedules would need [iptv-org/epg](https://github.com/iptv-org/epg)'s grabber fed into `/epg.xml`.
+**2. Guide (EPG)** — Dashboard → Live TV → **TV Guide Data Providers** → Add → **XMLTV**
+→ `http://YOUR-SERVER:8000/epg.xml`
+
+Then tick the guide provider for the tuner and refresh guide data. The EPG's channel ids match the playlist's `tvg-id`s, so Jellyfin lines them up automatically and the **Guide** view populates.
+
+> ⚠️ There's no real programme/schedule data — the guide shows rolling placeholder blocks so the grid isn't empty and channels are launchable from it. Real listings would need [iptv-org/epg](https://github.com/iptv-org/epg)'s grabber fed into `/epg.xml`.
+
+## Chromecast
+
+Get a Chromecast with Google TV, install an M3U streamer like Tivimate, and paste the M3U URL from the **TiviMate URL** button in the top-right of the app.
 
 ## Keyboard shortcuts
 
@@ -66,4 +82,6 @@ The EPG channel ids match the playlist's `tvg-id`s, so Jellyfin lines them up au
 
 ## How it works
 
-Channel data and stream URLs come from [iptv-org](https://github.com/iptv-org/iptv) and [Free-TV/IPTV](https://github.com/Free-TV/IPTV), merged server-side (Free-TV streams already present in iptv-org are deduped out). Stream health is detected live — if hls.js can't load a stream, the channel turns red. No pre-validation server required.
+Channel data and stream URLs come from [iptv-org](https://github.com/iptv-org/iptv) and [Free-TV/IPTV](https://github.com/Free-TV/IPTV), plus an optional local `local.m3u`, merged server-side (streams already present are deduped out). Only channels with **at least one stream URL** are kept — a channel iptv-org lists but has no playable link for can't be streamed, so it's dropped. To add such a channel, drop a working URL into `local.m3u` and it merges in under its `tvg-id`.
+
+Each channel keeps all its sources as an ordered fallback list. External players get one channel per entry; `/live` walks that list and serves the first source that connects. Stream health is also detected live in the web app — if hls.js can't load a stream, the channel turns red. No pre-validation server required.
