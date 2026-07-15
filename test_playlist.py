@@ -18,7 +18,7 @@ async def _main():
     server.build_channels = lambda: _wrap(FAKE)
     server._load_filters = lambda: []      # ignore the real filters.json
     server._apply_blacklist = lambda ch: ch  # ignore the real blacklist.json
-    body = (await server.get_playlist(_Req())).body.decode()
+    body = (await server.get_playlist(_Req(), verify=False)).body.decode()
     extinf = [l for l in body.splitlines() if l.startswith("#EXTINF")]
     # 2 channels in, 2 entries out — not one-per-stream (which would be 3)
     assert len(extinf) == 2, extinf
@@ -37,7 +37,7 @@ async def _main():
 
     # EPG is well-formed XML and its channel ids match the M3U tvg-ids
     import xml.etree.ElementTree as ET
-    tree = ET.fromstring((await server.epg()).body.decode())
+    tree = ET.fromstring((await server.epg(verify=False)).body.decode())
     ids = {c.get("id") for c in tree.findall("channel")}
     assert ids == {"a", "b"}, ids
     assert tree.findall("programme"), "guide has no programme blocks"
@@ -50,10 +50,20 @@ async def _main():
                      'channel="a"><title>Real Show</title></programme></tv>', encoding="utf-8")
     server.EPG_FILE = guide
     server._epg_cache = None
-    tree = ET.fromstring((await server.epg()).body.decode())
+    tree = ET.fromstring((await server.epg(verify=False)).body.decode())
     titles = {p.get("channel"): p.findtext("title") for p in tree.findall("programme")}
     assert titles["a"] == "Real Show", titles          # real listing used
     assert titles["b"] == "Bar", titles                # placeholder (channel name) for uncovered
+
+    # Liveness filter: only channels with a responding source survive verify=True
+    async def _fake_url_live(url):
+        return url == "http://x/2"    # only Foo's alt_url is "live"; Bar has none
+    server._url_live = _fake_url_live
+    live = await server._live_only(FAKE)
+    assert [c["id"] for c in live] == ["a"], live
+    # verify=false keeps everything (no probing)
+    body_all = (await server.get_playlist(_Req(), verify=False)).body.decode()
+    assert body_all.count("#EXTINF") == 2, body_all
     print("ok")
 
 

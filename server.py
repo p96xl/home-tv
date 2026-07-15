@@ -280,6 +280,50 @@ def _is_playlist(url: str) -> bool:
     return url.split("?")[0].lower().endswith((".m3u8", ".m3u"))
 
 
+# iptv-org's stream URLs aren't verified — plenty are dead. For the Jellyfin-facing endpoints we
+# probe each channel's sources and drop channels where nothing responds, so the tuner only lists
+# streams that actually play. Results are cached per URL so repeated playlist/guide fetches don't
+# re-probe. The web app (/api/channels) is left unfiltered — it shows dead streams as red dots.
+_LIVE_TTL = 30 * 60
+_live_cache: dict[str, tuple[float, bool]] = {}
+
+
+async def _url_live(url: str) -> bool:
+    """True if a small ranged GET returns bytes within the timeout. Cached for _LIVE_TTL."""
+    hit = _live_cache.get(url)
+    if hit and time.time() - hit[0] < _LIVE_TTL:
+        return hit[1]
+    ok = False
+    try:
+        async with httpx.AsyncClient(timeout=8, headers=HEADERS, follow_redirects=True) as c:
+            async with c.stream("GET", url, headers={"Range": "bytes=0-2047"}) as r:
+                if r.status_code < 400:
+                    async for _ in r.aiter_bytes(2048):
+                        ok = True
+                        break
+    except httpx.HTTPError:
+        ok = False
+    _live_cache[url] = (time.time(), ok)
+    return ok
+
+
+async def _live_only(channels: list[dict]) -> list[dict]:
+    """Keep only channels with at least one responding source. Probes channels concurrently and
+    each channel's sources in order, stopping at the first live one.
+    ponytail: connect-time probe, ~8s timeout, 30-min cache. A stream can still die between probe
+    and playback — the /live fallback covers that. Bump _LIVE_TTL or the semaphore if it drags."""
+    sem = asyncio.Semaphore(20)
+
+    async def keep(ch: dict) -> dict | None:
+        async with sem:
+            for u in [ch["url"], *ch.get("alt_urls", [])]:
+                if await _url_live(u):
+                    return ch
+            return None
+
+    return [ch for ch in await asyncio.gather(*(keep(c) for c in channels)) if ch]
+
+
 _STREAM_ERRORS = (httpx.TimeoutException, httpx.ConnectError,
                   httpx.RemoteProtocolError, httpx.ReadError)
 
@@ -404,8 +448,10 @@ async def get_channels():
 
 
 @app.get("/playlist.m3u")
-async def get_playlist(request: Request, direct: bool = False):
+async def get_playlist(request: Request, direct: bool = False, verify: bool = True):
     channels = apply_filters(_apply_blacklist(await build_channels()), _load_filters())
+    if verify:
+        channels = await _live_only(channels)  # drop channels whose streams don't respond
     base = str(request.base_url).rstrip("/")
     lines = ["#EXTM3U"]
     for ch in channels:
@@ -459,12 +505,15 @@ def _load_real_epg() -> dict[str, list[str]]:
 
 
 @app.get("/epg.xml")
-async def epg():
+async def epg(verify: bool = True):
     """XMLTV guide for Jellyfin's Live TV 'Guide'. Channel ids match the M3U tvg-ids so Jellyfin
     lines them up. Channels covered by guide.xml (iptv-org/epg grabber) get real programmes; the
     rest get rolling placeholder blocks so the grid still populates and channels stay launchable.
+    Verified to the same live channels as the playlist so the two stay in sync.
     ponytail: no guide.xml → all placeholder, same as before. One file swaps in real data."""
     channels = apply_filters(_apply_blacklist(await build_channels()), _load_filters())
+    if verify:
+        channels = await _live_only(channels)
     real = _load_real_epg()
     now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     block, span = timedelta(hours=3), 8  # 8×3h = next 24h
