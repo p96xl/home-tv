@@ -52,8 +52,16 @@ chmod +x start.sh
 
 Get a Chromecast with Google TV, install an M3U streamer like Tivimate, and paste the M3U URL from Tivimate URL button on the top right.
 
-To get an m3u streamer to work like m3u-ip.tv you'll need to do http://YOUR-SERVER:8000/playlist.m3u?proxy=true
-For Tivimate its just http://YOUR-SERVER:8000/playlist.m3u
+For Jellyfin, m3u-ip.tv, or any browser-based player use http://YOUR-SERVER:8000/playlist.m3u — one entry per channel, every source tried server-side behind a single `/live` URL (so duplicate channels collapse into one with automatic fallback).
+For Tivimate and other native apps that want raw stream URLs use http://YOUR-SERVER:8000/playlist.m3u?direct=true (one entry per channel, primary URL only).
+
+## Jellyfin
+
+**Tuner:** Dashboard → Live TV → Tuner Devices → Add → **M3U Tuner** → `http://YOUR-SERVER:8000/playlist.m3u`
+
+**Guide:** Dashboard → Live TV → TV Guide Data Providers → Add → **XMLTV** → `http://YOUR-SERVER:8000/epg.xml`, then tick it for the tuner and refresh guide data.
+
+The EPG channel ids match the playlist's `tvg-id`s, so Jellyfin lines them up automatically. Note: there's no real programme data — the guide shows rolling placeholder blocks so the grid populates and channels are launchable. Real schedules would need [iptv-org/epg](https://github.com/iptv-org/epg)'s grabber fed into `/epg.xml`.
 
 ## Keyboard shortcuts
 

@@ -222,23 +222,23 @@ export default function App() {
         </button>
         <button
           onClick={() => {
-            const url = `${window.location.protocol}//${window.location.hostname}:8000/playlist.m3u`
+            const url = `${window.location.protocol}//${window.location.hostname}:8000/playlist.m3u?direct=true`
             navigator.clipboard.writeText(url).catch(() => {})
           }}
           className="text-[10px] font-mono text-white/25 hover:text-white/60 border border-white/10 hover:border-white/20 rounded px-2 py-1 transition-colors"
-          title="Copy TiviMate playlist URL (raw stream URLs, for native apps)"
+          title="Copy TiviMate playlist URL (raw stream URLs, one per channel, for native apps)"
         >
           📋 TiviMate URL
         </button>
         <button
           onClick={() => {
-            const url = `${window.location.protocol}//${window.location.hostname}:8000/playlist.m3u?proxy=true`
+            const url = `${window.location.protocol}//${window.location.hostname}:8000/playlist.m3u`
             navigator.clipboard.writeText(url).catch(() => {})
           }}
           className="text-[10px] font-mono text-white/25 hover:text-white/60 border border-white/10 hover:border-white/20 rounded px-2 py-1 transition-colors"
-          title="Copy proxied playlist URL (streams routed through this server — use for browser-based players)"
+          title="Copy proxied playlist URL (one channel per stream, all sources tried server-side — Jellyfin, browser players)"
         >
-          📋 Browser URL
+          📋 Jellyfin / Browser URL
         </button>
       </header>
 

@@ -4,8 +4,10 @@ import json
 import re
 import time
 import urllib.parse
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from collections import defaultdict
+from xml.sax.saxutils import escape, quoteattr
 
 import httpx
 from fastapi.staticfiles import StaticFiles
@@ -273,6 +275,53 @@ def _proxy_url(url: str) -> str:
     return f"/proxy?url={urllib.parse.quote(url, safe='')}"
 
 
+def _is_playlist(url: str) -> bool:
+    return url.split("?")[0].lower().endswith((".m3u8", ".m3u"))
+
+
+_STREAM_ERRORS = (httpx.TimeoutException, httpx.ConnectError,
+                  httpx.RemoteProtocolError, httpx.ReadError)
+
+
+async def _stream_first(urls: list[str]):
+    """Pipe the first raw stream that connects, skipping dead ones. Playlists in the list are
+    skipped here — they're handled by _serve before we ever get to raw streaming."""
+    for url in urls:
+        if _is_playlist(url):
+            continue
+        try:
+            async with httpx.AsyncClient(timeout=30, headers=HEADERS, follow_redirects=True) as c:
+                async with c.stream("GET", url) as r:
+                    if r.status_code >= 400:
+                        continue
+                    async for chunk in r.aiter_bytes(chunk_size=65536):
+                        yield chunk
+                    return
+        except _STREAM_ERRORS:
+            continue
+
+
+async def _serve(urls: list[str]) -> Response:
+    """Serve the first working stream from `urls`, falling back to the next on connect failure.
+    Playlists are fetched and rewritten to route segments through /proxy; raw streams are piped.
+    ponytail: fallback is at connect time only — a stream that dies mid-play isn't restarted, same
+    as before. That's the household-good-enough ceiling; add mid-stream retry if it bites."""
+    for i, url in enumerate(urls):
+        if _is_playlist(url):
+            try:
+                async with httpx.AsyncClient(timeout=30, headers=HEADERS, follow_redirects=True) as c:
+                    r = await c.get(url)
+            except _STREAM_ERRORS:
+                continue
+            if r.status_code >= 400:
+                continue
+            return Response(_rewrite_m3u8(r.text, str(r.url)).encode(),
+                            media_type="application/vnd.apple.mpegurl")
+        # raw stream — hand the rest of the list to the generator so it can fall back too
+        return StreamingResponse(_stream_first(urls[i:]), media_type="video/mp2t")
+    return Response(status_code=504)
+
+
 def _hd_label(quality: str | None) -> str | None:
     if not quality:
         return None
@@ -334,30 +383,18 @@ async def add_blacklist(request: Request):
 
 @app.get("/proxy")
 async def proxy(url: str):
-    is_playlist = url.split("?")[0].lower().endswith((".m3u8", ".m3u"))
+    return await _serve([url])
 
-    if is_playlist:
-        try:
-            async with httpx.AsyncClient(timeout=30, headers=HEADERS, follow_redirects=True) as c:
-                r = await c.get(url)
-        except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError):
-            return Response(status_code=504)
-        ct = r.headers.get("content-type", "").lower()
-        if "mpegurl" in ct or is_playlist:
-            return Response(_rewrite_m3u8(r.text, str(r.url)).encode(),
-                            media_type="application/vnd.apple.mpegurl")
-        return Response(r.content, media_type=ct or "application/octet-stream")
 
-    async def _stream():
-        try:
-            async with httpx.AsyncClient(timeout=30, headers=HEADERS, follow_redirects=True) as c:
-                async with c.stream("GET", url) as r:
-                    async for chunk in r.aiter_bytes(chunk_size=65536):
-                        yield chunk
-        except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadError):
-            return
-
-    return StreamingResponse(_stream(), media_type="video/mp2t")
+@app.get("/live")
+async def live(n: int):
+    """Serve one channel by its number, trying all its sources in order. Lets external players
+    (Jellyfin etc.) treat a multi-source channel as a single channel with automatic fallback."""
+    channels = _apply_blacklist(await build_channels())
+    ch = next((c for c in channels if c["number"] == n), None)
+    if not ch:
+        return Response(status_code=404)
+    return await _serve([ch["url"], *ch.get("alt_urls", [])])
 
 
 @app.get("/api/channels")
@@ -366,7 +403,7 @@ async def get_channels():
 
 
 @app.get("/playlist.m3u")
-async def get_playlist(request: Request, proxy: bool = False):
+async def get_playlist(request: Request, direct: bool = False):
     channels = apply_filters(_apply_blacklist(await build_channels()), _load_filters())
     base = str(request.base_url).rstrip("/")
     lines = ["#EXTM3U"]
@@ -376,13 +413,47 @@ async def get_playlist(request: Request, proxy: bool = False):
         cat = f' group-title="{ch["category"]}"' if ch.get("category") else ""
         hd = _hd_label(ch.get("quality"))
         name = f'{ch["name"]} [{hd}]' if hd else ch["name"]
-        # One entry per stream URL — players that understand tvg-id group them and try each in order
-        for url in [ch["url"]] + (ch.get("alt_urls") or []):
-            stream = f"{base}/proxy?url={urllib.parse.quote(url, safe='')}" if proxy else url
-            lines.append(f'#EXTINF:-1 tvg-id="{ch["id"]}"{logo}{lang}{cat},{name}')
-            lines.append(stream)
+        # One entry per channel. Default points at /live, which tries every source behind a single
+        # URL — so players like Jellyfin see one channel, not one per stream. ?direct=true emits the
+        # raw primary URL instead (no proxy, no fallback) for players that don't want to route
+        # through this box.
+        src = ch["url"] if direct else f'{base}/live?n={ch["number"]}'
+        lines.append(f'#EXTINF:-1 tvg-id="{ch["id"]}"{logo}{lang}{cat},{name}')
+        lines.append(src)
     return Response("\n".join(lines), media_type="audio/x-mpegurl",
                     headers={"Content-Disposition": 'inline; filename="playlist.m3u"'})
+
+
+def _xmltv_time(dt: datetime) -> str:
+    return dt.strftime("%Y%m%d%H%M%S %z")
+
+
+@app.get("/epg.xml")
+async def epg():
+    """XMLTV guide so Jellyfin's Live TV 'Guide' isn't empty. Channel ids match the M3U tvg-ids,
+    so Jellyfin lines them up. We have no real programme data, so each channel gets rolling
+    placeholder blocks — enough to populate the grid and launch channels from it.
+    ponytail: placeholder listings only. Real schedules need iptv-org/epg's grabber; feed its
+    guide.xml here (or merge it) when you want actual programmes."""
+    channels = apply_filters(_apply_blacklist(await build_channels()), _load_filters())
+    now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    block, span = timedelta(hours=3), 8  # 8×3h = next 24h
+    chan_xml, prog_xml = [], []
+    for ch in channels:
+        cid = ch.get("id")
+        if not cid:
+            continue  # can't key a guide row without a stable id; channel still plays, just no guide
+        aid = quoteattr(cid)
+        name = escape(ch["name"])
+        icon = f'<icon src={quoteattr(ch["logo"])}/>' if ch.get("logo") else ""
+        chan_xml.append(f'<channel id={aid}><display-name>{name}</display-name>{icon}</channel>')
+        for k in range(span):
+            s, e = now + k * block, now + (k + 1) * block
+            prog_xml.append(
+                f'<programme start="{_xmltv_time(s)}" stop="{_xmltv_time(e)}" channel={aid}>'
+                f'<title>{name}</title><desc>Live stream — no guide data available.</desc></programme>')
+    body = '<?xml version="1.0" encoding="UTF-8"?>\n<tv>\n' + "\n".join(chan_xml + prog_xml) + "\n</tv>"
+    return Response(body, media_type="application/xml")
 
 
 app.mount("/", StaticFiles(directory="dist", html=True), name="static")
