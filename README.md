@@ -55,6 +55,8 @@ The server exposes two flavours of the M3U, both **one entry per channel** (no d
 
 Whatever you change in the app's filters is baked into these playlists after you press **Push Settings to Server**.
 
+**Dead-stream filtering:** both URLs probe each channel's sources and **only list channels that actually respond** — iptv-org's stream URLs are unverified, so plenty are dead. Results are cached 30 min, so the first fetch after a cache miss is slower (it's probing). Add `?verify=false` to skip probing and list every channel that has a URL on file (`/api/channels`, used by the web app, is never filtered — it shows dead streams as red dots instead).
+
 ## Jellyfin
 
 **1. Tuner** — Dashboard → Live TV → **Tuner Devices** → Add → **M3U Tuner**
