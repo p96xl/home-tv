@@ -23,14 +23,24 @@ jobs:
           cd grabber && npm install --no-audit --no-fund
           # The grabber exits non-zero if any single site errors — a partial guide is still useful,
           # so don't let one flaky EPG site fail the whole run. We gate on the output below instead.
-          npm run grab --- --channels=../channels.xml --days=2 --maxConnections=5 --output=../guide.xml || true
-          echo "=== guide.xml ==="; ls -l ../guide.xml || echo "(no guide.xml written)"
-          echo "programmes: $(grep -c '<programme' ../guide.xml 2>/dev/null || echo 0)"
+          set +e
+          npm run grab --- --channels=../channels.xml --days=2 --maxConnections=5 --output=../guide.xml
+          echo "grabber exit: $?"
+          set -e
+          cd "$GITHUB_WORKSPACE"
+          echo "=== xml files produced (excluding node_modules) ==="
+          find . -path ./grabber/node_modules -prune -o -name '*.xml' -print
+          # The grabber's output path can vary — take whatever guide.xml it wrote
+          FOUND=$(find . -path ./grabber/node_modules -prune -o -name 'guide.xml' -type f -print | head -1)
+          [ -n "$FOUND" ] && [ "$FOUND" != "./guide.xml" ] && cp "$FOUND" guide.xml
+          echo "=== guide.xml at root ==="; ls -l guide.xml 2>/dev/null || echo "(none)"
+          echo "programmes: $(grep -c '<programme' guide.xml 2>/dev/null || echo 0)"
 
       - name: Publish guide.xml to epg-data branch
         run: |
-          # Fail loudly if the grab produced nothing real; otherwise publish (partial is fine)
-          test -s guide.xml && grep -q '<programme' guide.xml
+          if [ ! -s guide.xml ] || ! grep -q '<programme' guide.xml; then
+            echo "::error::grab produced no usable guide.xml (empty or no programmes)"; exit 1
+          fi
           mkdir pub && cp guide.xml pub/
           cd pub
           git init -q && git checkout -q -b epg-data
