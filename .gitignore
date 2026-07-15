@@ -6,7 +6,6 @@ logs/
 filters.json
 blacklist.json
 local.m3u
-guide.xml
 .pid.api
 .pid.ui
 vite.config.ts

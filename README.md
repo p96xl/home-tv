@@ -14,7 +14,6 @@ Powered by [iptv-org](https://github.com/iptv-org/iptv) and [Free-TV/IPTV](https
 - M3U playlist link will automatically update the channel list when 'Push Settings to Server' button is pressed
 - Filters are inclusive or exclusive for Country, Language, Catagory, Quality
 - One entry per channel with server-side source fallback — no duplicate rows in Jellyfin
-- XMLTV guide endpoint (`/epg.xml`) so Jellyfin's Live TV Guide populates
 
 ## Screenshots
 
@@ -59,35 +58,10 @@ Whatever you change in the app's filters is baked into these playlists after you
 
 ## Jellyfin
 
-**1. Tuner** — Dashboard → Live TV → **Tuner Devices** → Add → **M3U Tuner**
+**Tuner** — Dashboard → Live TV → **Tuner Devices** → Add → **M3U Tuner**
 → `http://YOUR-SERVER:8000/playlist.m3u`
 
 Each channel shows up **once**, with all its stream sources tried behind the scenes — no more three-of-the-same-channel.
-
-**2. Guide (EPG)** — Dashboard → Live TV → **TV Guide Data Providers** → Add → **XMLTV**
-→ `http://YOUR-SERVER:8000/epg.xml`
-
-Then tick the guide provider for the tuner and refresh guide data. The EPG's channel ids match the playlist's `tvg-id`s, so Jellyfin lines them up automatically and the **Guide** view populates.
-
-> If the Guide is empty, it's almost always **filters** (a playlist with zero channels has no guide) or **Jellyfin's cached guide** — run Dashboard → Scheduled Tasks → **Refresh Guide**. Note: `/epg.xml` follows your active filters, so if the M3U is empty the guide is too.
-
-### Real programme listings (optional)
-
-Out of the box the guide shows rolling **placeholder** blocks (channel name, "no guide data available") — enough to populate the grid. For real "what's on now/next", drop a `guide.xml` (XMLTV from [iptv-org/epg](https://github.com/iptv-org/epg)'s grabber) in the repo root; `server.py` merges it automatically — real programmes for covered channels, placeholder for the rest, picked up on the next request (no restart).
-
-The grabber loads iptv-org's whole API into memory, which OOMs a small server, so **`.github/workflows/epg.yml` runs it on GitHub's runners** instead: nightly it builds a Ukrainian channel list from iptv-org's public API, grabs listings, and force-pushes `guide.xml` to an orphan **`epg-data`** branch. Your server just pulls that one file.
-
-One-time setup:
-
-1. Repo → **Settings → Actions → General → Workflow permissions** → **Read and write** (so the Action can push the branch).
-2. Run it once: repo **Actions → EPG → Run workflow**. Confirm the `epg-data` branch appears with a `guide.xml`.
-3. On the server, cron a daily fetch (after the 03:00 UTC grab):
-
-```cron
-0 5 * * *  curl -fsS -o /path/to/home-tv/guide.xml https://raw.githubusercontent.com/OWNER/REPO/epg-data/guide.xml
-```
-
-~70 Ukrainian channels have a real guide source (via iptv-org's `guides.json`); channels without one — including all `local.*` — stay on placeholder. Grabbing a different language? Edit `INCLUDE`/`EXCLUDE` in `epg/build_channels.py`.
 
 ## Chromecast
 
