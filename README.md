@@ -75,20 +75,19 @@ Then tick the guide provider for the tuner and refresh guide data. The EPG's cha
 
 Out of the box the guide shows rolling **placeholder** blocks (channel name, "no guide data available") — enough to populate the grid. For real "what's on now/next", drop a `guide.xml` (XMLTV from [iptv-org/epg](https://github.com/iptv-org/epg)'s grabber) in the repo root; `server.py` merges it automatically — real programmes for covered channels, placeholder for the rest, picked up on the next request (no restart).
 
-The grabber loads iptv-org's whole API into memory, which OOMs a small server, so **`.github/workflows/epg.yml` runs it on GitHub's runners** instead: nightly it reads your server's channel list, grabs listings, and force-pushes `guide.xml` to an orphan **`epg-data`** branch. Your server just pulls that one file.
+The grabber loads iptv-org's whole API into memory, which OOMs a small server, so **`.github/workflows/epg.yml` runs it on GitHub's runners** instead: nightly it builds a Ukrainian channel list from iptv-org's public API, grabs listings, and force-pushes `guide.xml` to an orphan **`epg-data`** branch. Your server just pulls that one file.
 
 One-time setup:
 
-1. Repo → **Settings → Secrets and variables → Actions → Variables** → add `HOMETV_URL` = your public server URL (e.g. `https://tv.example.com`).
-2. Repo → **Settings → Actions → General → Workflow permissions** → **Read and write** (so the Action can push the branch).
-3. Run it once: repo **Actions → EPG → Run workflow**. Confirm the `epg-data` branch appears with a `guide.xml`.
-4. On the server, cron a daily fetch (after the 03:00 UTC grab):
+1. Repo → **Settings → Actions → General → Workflow permissions** → **Read and write** (so the Action can push the branch).
+2. Run it once: repo **Actions → EPG → Run workflow**. Confirm the `epg-data` branch appears with a `guide.xml`.
+3. On the server, cron a daily fetch (after the 03:00 UTC grab):
 
 ```cron
 0 5 * * *  curl -fsS -o /path/to/home-tv/guide.xml https://raw.githubusercontent.com/OWNER/REPO/epg-data/guide.xml
 ```
 
-Coverage depends on your filters — for a Ukrainian set, ~47 channels have a real guide source (via iptv-org's `guides.json`); the rest stay on placeholder. `local.*` channels have no real source and are always placeholder.
+~70 Ukrainian channels have a real guide source (via iptv-org's `guides.json`); channels without one — including all `local.*` — stay on placeholder. Grabbing a different language? Edit `INCLUDE`/`EXCLUDE` in `epg/build_channels.py`.
 
 ## Chromecast
 

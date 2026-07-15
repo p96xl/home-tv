@@ -1,34 +1,43 @@
 #!/usr/bin/env python3
-"""Emit an iptv-org/epg channels.xml for exactly the channels a running Home TV server serves.
+"""Emit an iptv-org/epg channels.xml for the Ukrainian channels that have a guide source.
 
-Reads the server's /epg.xml (already filtered to the user's settings) for its channel ids, joins
-each to iptv-org's guides.json for a grabber site + site_id, keeps one source per channel (prefers
-a Ukrainian-language guide). Runs in CI against the public server — no server import, no dist/.
+Uses only iptv-org's public API — it does NOT call your own server, because GitHub's runners get
+Cloudflare-403'd by it. A channel is included if any of its feeds lists Ukrainian and none lists
+Russian (matching the app's default "language Ukrainian, not Russian" filter). Change INCLUDE /
+EXCLUDE below for a different language.
 
-Usage:  python epg/build_channels.py https://tv.example.com > channels.xml
+The result is a superset of what the server serves (it also lists a few UA channels the server has
+no stream for) — harmless: the server only merges real programmes for channels it actually carries.
+
+Usage:  python epg/build_channels.py > channels.xml
 """
 import json
-import re
 import sys
 import urllib.request
 from xml.sax.saxutils import escape, quoteattr
 
-GUIDES = "https://iptv-org.github.io/api/guides.json"
+API = "https://iptv-org.github.io/api"
+INCLUDE = "ukr"   # ISO 639-3 language code to include
+EXCLUDE = "rus"   # ... and exclude
 
 
-def _fetch(url: str) -> str:
-    # browser UA — some hosts (Cloudflare) 403 the default urllib agent
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    return urllib.request.urlopen(req, timeout=120).read().decode()
+def _get(path: str):
+    req = urllib.request.Request(f"{API}/{path}", headers={"User-Agent": "Mozilla/5.0"})
+    return json.loads(urllib.request.urlopen(req, timeout=120).read())
 
 
 def main() -> None:
-    base = (sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000").rstrip("/")
-    ids = set(re.findall(r'<channel id="([^"]+)"', _fetch(f"{base}/epg.xml?verify=false")))
-    guides = json.loads(_fetch(GUIDES))
+    inc, exc = set(), set()
+    for f in _get("feeds.json"):
+        codes = f.get("languages") or []
+        if INCLUDE in codes:
+            inc.add(f["channel"])
+        if EXCLUDE in codes:
+            exc.add(f["channel"])
+    ids = inc - exc
 
     by_chan: dict[str, list[dict]] = {}
-    for e in guides:
+    for e in _get("guides.json"):
         cid = e.get("channel")
         if cid in ids and e.get("site") and e.get("site_id"):
             by_chan.setdefault(cid, []).append(e)
@@ -42,7 +51,8 @@ def main() -> None:
             f'xmltv_id={quoteattr(cid)} site_id={quoteattr(e["site_id"])}>{name}</channel>')
     out.append("</channels>")
     print("\n".join(out))
-    print(f"# {len(by_chan)} channels with a guide source (of {len(ids)} served)", file=sys.stderr)
+    print(f"# {len(by_chan)} channels with a guide source (of {len(ids)} {INCLUDE}-not-{EXCLUDE})",
+          file=sys.stderr)
 
 
 if __name__ == "__main__":

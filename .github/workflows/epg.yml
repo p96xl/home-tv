@@ -12,9 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4  # runner already has Node/npm — no setup-node needed
 
-      - name: Build channel list from the live server
+      - name: Build channel list from iptv-org's public API
         run: |
-          python3 epg/build_channels.py "${{ vars.HOMETV_URL }}" > channels.xml
+          python3 epg/build_channels.py > channels.xml
           echo "channels.xml: $(grep -c '<channel ' channels.xml) channels"
 
       - name: Grab EPG with iptv-org/epg
