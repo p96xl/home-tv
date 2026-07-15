@@ -42,12 +42,6 @@ npm run build            # creates the dist/ folder the server serves
 uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
-**Headless Start**
-```bash
-chmod +x start.sh
-./start.sh
-```
-
 ## Chromecast
 
 Get a Chromecast with Google TV, install an M3U streamer like Tivimate, and paste the M3U URL from Tivimate URL button on the top right.
