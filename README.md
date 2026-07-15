@@ -74,6 +74,10 @@ Get a Chromecast with Google TV, install an M3U streamer like Tivimate, and past
 | ↑ / ↓ or ← / → | Surf channels |
 | Esc | Close settings |
 
+## Debug mode
+
+The **🐞 Debug** button (top-right) shows the current stream URL and an **⊘ Omit link** button on the player. Omitting a link blacklists that URL server-side (`blacklist.json`) and drops it from the channel everywhere — the channel falls back to its next source, or disappears if that was its only one. Handy for pruning dead streams by hand; after omitting, the selection moves to the next channel down so you can keep going.
+
 ## How it works
 
 Channel data and stream URLs come from [iptv-org](https://github.com/iptv-org/iptv) and [Free-TV/IPTV](https://github.com/Free-TV/IPTV), plus an optional local `local.m3u`, merged server-side (streams already present are deduped out). Only channels with **at least one stream URL** are kept — a channel iptv-org lists but has no playable link for can't be streamed, so it's dropped. To add such a channel, drop a working URL into `local.m3u` and it merges in under its `tvg-id`.
