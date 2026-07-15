@@ -158,11 +158,14 @@ export default function App() {
   // Debug: omit a bad stream URL — persist it server-side and drop it from the channel here.
   const omitLink = useCallback((url: string) => {
     fetch('/api/blacklist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).catch(() => {})
-    // If the omitted url is the selected channel's primary, follow it to the next surviving link.
+    // If the omitted url is selected: stay on this channel if it has another source; otherwise the
+    // channel disappears, so drop to the next channel down (then the previous), not back to the top.
     if (selectedUrlRef.current === url) {
-      const ch = filteredChannelsRef.current.find(c => c.url === url)
-      const next = ch ? [ch.url, ...ch.alt_urls].filter(u => u !== url)[0] : undefined
-      setSelectedUrl(next ?? null)
+      const list = filteredChannelsRef.current
+      const cur = list.findIndex(c => c.url === url)
+      const survivingAlt = cur >= 0 ? [list[cur].url, ...list[cur].alt_urls].find(u => u !== url) : undefined
+      const nextChannel = list[cur + 1] ?? list[cur - 1]
+      setSelectedUrl(survivingAlt ?? nextChannel?.url ?? null)
     }
     setChannels(prev => prev.flatMap(ch => {
       const all = [ch.url, ...ch.alt_urls]
