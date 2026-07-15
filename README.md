@@ -67,7 +67,26 @@ Each channel shows up **once**, with all its stream sources tried behind the sce
 
 Then tick the guide provider for the tuner and refresh guide data. The EPG's channel ids match the playlist's `tvg-id`s, so Jellyfin lines them up automatically and the **Guide** view populates.
 
-> ⚠️ There's no real programme/schedule data — the guide shows rolling placeholder blocks so the grid isn't empty and channels are launchable from it. Real listings would need [iptv-org/epg](https://github.com/iptv-org/epg)'s grabber fed into `/epg.xml`.
+> If the Guide is empty, it's almost always **filters** (a playlist with zero channels has no guide) or **Jellyfin's cached guide** — run Dashboard → Scheduled Tasks → **Refresh Guide**. Note: `/epg.xml` follows your active filters, so if the M3U is empty the guide is too.
+
+### Real programme listings (optional)
+
+Out of the box the guide shows rolling **placeholder** blocks (channel name, "no guide data available") — enough to populate the grid. For real "what's on now/next" listings, run [iptv-org/epg](https://github.com/iptv-org/epg)'s grabber and drop its output at `guide.xml` in the repo root; `server.py` merges it automatically (real programmes for covered channels, placeholder for the rest).
+
+`epg/refresh.sh` does the whole thing — clones/updates the grabber, builds a channel list matching exactly what your server serves, grabs, and writes `guide.xml`:
+
+```bash
+# needs node/npm + python3, and the server importable from the repo root (dist/ built)
+./epg/refresh.sh
+```
+
+Then run it daily from cron:
+
+```cron
+0 4 * * *  /path/to/home-tv/epg/refresh.sh >> /path/to/home-tv/logs/epg.log 2>&1
+```
+
+Coverage depends on your filters — for a Ukrainian set, ~50 channels have a real guide source (via iptv-org's `guides.json`); the rest stay on placeholder. `local.*` channels have no real source and are always placeholder.
 
 ## Chromecast
 

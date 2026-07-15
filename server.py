@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from collections import defaultdict
 from xml.sax.saxutils import escape, quoteattr
+import xml.etree.ElementTree as ET
 
 import httpx
 from fastapi.staticfiles import StaticFiles
@@ -428,14 +429,43 @@ def _xmltv_time(dt: datetime) -> str:
     return dt.strftime("%Y%m%d%H%M%S %z")
 
 
+# Real XMLTV listings, produced by iptv-org/epg's grabber (optional). Regenerate with epg/refresh.sh.
+# When present, channels it covers get real programmes; the rest fall back to placeholder blocks.
+EPG_FILE = Path("guide.xml")
+_epg_cache: tuple[float, dict[str, list[str]]] | None = None
+
+
+def _load_real_epg() -> dict[str, list[str]]:
+    """Parse the grabber's guide.xml into {channel_id: [<programme> xml, ...]}, cached by mtime.
+    Missing or unparseable file → empty dict, so /epg.xml just serves placeholders."""
+    global _epg_cache
+    if not EPG_FILE.exists():
+        return {}
+    mtime = EPG_FILE.stat().st_mtime
+    if _epg_cache and _epg_cache[0] == mtime:
+        return _epg_cache[1]
+    progs: dict[str, list[str]] = defaultdict(list)
+    try:
+        root = ET.fromstring(EPG_FILE.read_text(encoding="utf-8"))
+    except (ET.ParseError, OSError):
+        return {}
+    for e in root.findall("programme"):
+        cid = e.get("channel")
+        if cid:
+            progs[cid].append(ET.tostring(e, encoding="unicode"))
+    progs = dict(progs)
+    _epg_cache = (mtime, progs)
+    return progs
+
+
 @app.get("/epg.xml")
 async def epg():
-    """XMLTV guide so Jellyfin's Live TV 'Guide' isn't empty. Channel ids match the M3U tvg-ids,
-    so Jellyfin lines them up. We have no real programme data, so each channel gets rolling
-    placeholder blocks — enough to populate the grid and launch channels from it.
-    ponytail: placeholder listings only. Real schedules need iptv-org/epg's grabber; feed its
-    guide.xml here (or merge it) when you want actual programmes."""
+    """XMLTV guide for Jellyfin's Live TV 'Guide'. Channel ids match the M3U tvg-ids so Jellyfin
+    lines them up. Channels covered by guide.xml (iptv-org/epg grabber) get real programmes; the
+    rest get rolling placeholder blocks so the grid still populates and channels stay launchable.
+    ponytail: no guide.xml → all placeholder, same as before. One file swaps in real data."""
     channels = apply_filters(_apply_blacklist(await build_channels()), _load_filters())
+    real = _load_real_epg()
     now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
     block, span = timedelta(hours=3), 8  # 8×3h = next 24h
     chan_xml, prog_xml = [], []
@@ -447,6 +477,9 @@ async def epg():
         name = escape(ch["name"])
         icon = f'<icon src={quoteattr(ch["logo"])}/>' if ch.get("logo") else ""
         chan_xml.append(f'<channel id={aid}><display-name>{name}</display-name>{icon}</channel>')
+        if cid in real:
+            prog_xml.extend(real[cid])  # real listings from the grabber
+            continue
         for k in range(span):
             s, e = now + k * block, now + (k + 1) * block
             prog_xml.append(
