@@ -7,7 +7,16 @@
 #   0 4 * * *  /path/to/home-tv/epg/refresh.sh >> /path/to/home-tv/logs/epg.log 2>&1
 #
 # Needs: node/npm, python3, and the server importable from the repo root (dist/ built).
+#
+# Low-RAM box? iptv-org/epg loads its whole API into memory and can OOM (and take other processes
+# down with it). We raise Node's heap below; on a small server also add swap once, e.g.:
+#   sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+#   sudo mkswap /swapfile && sudo swapon /swapfile
+#   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 set -euo pipefail
+
+# Bigger V8 heap for the grabber's API-load step (override with NODE_HEAP_MB=...)
+export NODE_OPTIONS="--max-old-space-size=${NODE_HEAP_MB:-2048}"
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"     # Home TV repo root
 EPG_DIR="${EPG_DIR:-$HOME/iptv-org-epg}"      # where the grabber lives (override with EPG_DIR=...)
