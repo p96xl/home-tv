@@ -10,22 +10,27 @@ jobs:
   grab:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
+      - uses: actions/checkout@v4  # runner already has Node/npm — no setup-node needed
 
       - name: Build channel list from the live server
-        run: python3 epg/build_channels.py "${{ vars.HOMETV_URL }}" > channels.xml
+        run: |
+          python3 epg/build_channels.py "${{ vars.HOMETV_URL }}" > channels.xml
+          echo "channels.xml: $(grep -c '<channel ' channels.xml) channels"
 
       - name: Grab EPG with iptv-org/epg
         run: |
           git clone --depth 1 https://github.com/iptv-org/epg.git grabber
           cd grabber && npm install --no-audit --no-fund
-          npm run grab --- --channels=../channels.xml --days=2 --maxConnections=5 --output=../guide.xml
+          # The grabber exits non-zero if any single site errors — a partial guide is still useful,
+          # so don't let one flaky EPG site fail the whole run. We gate on the output below instead.
+          npm run grab --- --channels=../channels.xml --days=2 --maxConnections=5 --output=../guide.xml || true
+          echo "=== guide.xml ==="; ls -l ../guide.xml || echo "(no guide.xml written)"
+          echo "programmes: $(grep -c '<programme' ../guide.xml 2>/dev/null || echo 0)"
 
       - name: Publish guide.xml to epg-data branch
         run: |
+          # Fail loudly if the grab produced nothing real; otherwise publish (partial is fine)
+          test -s guide.xml && grep -q '<programme' guide.xml
           mkdir pub && cp guide.xml pub/
           cd pub
           git init -q && git checkout -q -b epg-data
