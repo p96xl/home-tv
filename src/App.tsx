@@ -24,6 +24,8 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [debug, setDebug] = useState(false)
+  const [localEditor, setLocalEditor] = useState<{ text: string; enabled: boolean } | null>(null)
+  const [localSaving, setLocalSaving] = useState(false)
   const filteredChannelsRef = useRef<typeof filteredChannels>([])
   const selectedUrlRef = useRef<string | null>(null)
   const [pushState, setPushState] = useState<'idle' | 'pushing' | 'done' | 'error'>('idle')
@@ -175,6 +177,20 @@ export default function App() {
     }))
   }, [])
 
+  const openLocalEditor = useCallback(() => {
+    fetch('/api/local').then(r => r.json()).then(setLocalEditor).catch(() => {})
+  }, [])
+
+  const saveLocalEditor = useCallback(() => {
+    if (!localEditor) return
+    setLocalSaving(true)
+    fetch('/api/local', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(localEditor) })
+      .then(() => fetch('/api/channels').then(r => r.json()))  // rebuilt server-side; refresh the list
+      .then((data: Channel[]) => { setChannels(data); setLocalEditor(null) })
+      .catch(() => {})
+      .finally(() => setLocalSaving(false))
+  }, [localEditor])
+
   const lastTapRef = useRef(0)
   const onChannel = useCallback((dir: 'next' | 'prev') => {
     const now = Date.now()
@@ -216,6 +232,15 @@ export default function App() {
         >
           🐞 Debug
         </button>
+        {debug && (
+          <button
+            onClick={openLocalEditor}
+            className="text-[10px] font-mono text-amber-400 border border-amber-400/40 hover:border-amber-400 rounded px-2 py-1 transition-colors"
+            title="Edit or disable the local.m3u extra channels"
+          >
+            📝 Edit local.m3u
+          </button>
+        )}
         <button
           onClick={pushSettings}
           className="text-[10px] font-mono text-white/25 hover:text-white/60 border border-white/10 hover:border-white/20 rounded px-2 py-1 transition-colors"
@@ -272,6 +297,33 @@ export default function App() {
         </button>
         <Player channel={selectedChannel} onLive={markLive} onError={onStreamError} onChannel={onChannel} sidebarOpen={sidebarOpen} debug={debug} onOmit={omitLink} />
       </div>
+
+      {localEditor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6" onClick={() => setLocalEditor(null)}>
+          <div className="flex flex-col w-full max-w-2xl h-[80vh] bg-zinc-900 border border-white/10 rounded-lg p-4 gap-3" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <span className="font-bold text-sm">📝 local.m3u</span>
+              <label className="flex items-center gap-1.5 text-xs text-white/70 ml-auto cursor-pointer">
+                <input type="checkbox" checked={localEditor.enabled} onChange={e => setLocalEditor({ ...localEditor, enabled: e.target.checked })} />
+                Enabled
+              </label>
+            </div>
+            <textarea
+              value={localEditor.text}
+              onChange={e => setLocalEditor({ ...localEditor, text: e.target.value })}
+              spellCheck={false}
+              placeholder={'#EXTM3U\n#EXTINF:-1 tvg-id="" tvg-name="My Channel",My Channel\nhttp://example.com/stream.m3u8'}
+              className="flex-1 w-full resize-none bg-black/40 border border-white/10 rounded p-2 font-mono text-xs text-white/90 focus:outline-none focus:border-amber-400/50"
+            />
+            <div className="flex items-center gap-2 justify-end text-xs font-mono">
+              <button onClick={() => setLocalEditor(null)} className="text-white/50 hover:text-white/80 border border-white/10 rounded px-3 py-1.5">Cancel</button>
+              <button onClick={saveLocalEditor} disabled={localSaving} className="text-amber-400 border border-amber-400/40 hover:border-amber-400 rounded px-3 py-1.5 disabled:opacity-50">
+                {localSaving ? '⏳ Saving…' : '💾 Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -20,8 +20,9 @@ LOGO_MAP_FILE = Path("logo_map.json")
 IPTV = "https://iptv-org.github.io"
 FREETV = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8"
 # One local M3U of extra channels (Ukrainian TV), merged after the online sources.
-# Regenerate it with ua_hunt/build_local_m3u.py; edit by hand if you like.
+# Regenerate it with ua_hunt/build_local_m3u.py; edit by hand or in the app's debug panel.
 LOCAL_M3U = Path("local.m3u")
+LOCAL_DISABLED = Path("local.disabled")  # presence = skip the local merge (toggle in debug mode)
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
 CACHE_TTL = 6 * 3600  # 6 hours — iptv-org data changes slowly
 
@@ -88,7 +89,7 @@ def _merge_m3u(text: str, channels: list[dict], seen: set[str],
 def _load_local(channels: list[dict], seen: set[str]) -> None:
     """Merge the local extra-channels M3U — Ukrainian TV, defaulted to language/country so the
     app's language and country filters include them."""
-    if LOCAL_M3U.exists():
+    if LOCAL_M3U.exists() and not LOCAL_DISABLED.exists():
         _merge_m3u(LOCAL_M3U.read_text(encoding="utf-8"), channels, seen,
                    default_lang="Ukrainian", default_country="UA")
 
@@ -420,6 +421,30 @@ async def add_blacklist(request: Request):
         if url not in bl:
             bl.append(url)
             BLACKLIST_FILE.write_text(json.dumps(bl))
+    return {"ok": True}
+
+
+@app.get("/api/local")
+def get_local():
+    """The local.m3u text and whether it's merged in — for the debug editor."""
+    return {"enabled": not LOCAL_DISABLED.exists(),
+            "text": LOCAL_M3U.read_text(encoding="utf-8") if LOCAL_M3U.exists() else ""}
+
+
+@app.post("/api/local")
+async def save_local(request: Request):
+    """Overwrite local.m3u and/or toggle it on/off (debug mode). Busts the channel cache so the
+    change shows on the next fetch instead of waiting out the TTL."""
+    global _channels_cache
+    data = await request.json()
+    if "text" in data:
+        LOCAL_M3U.write_text(data["text"], encoding="utf-8")
+    if "enabled" in data:
+        if data["enabled"]:
+            LOCAL_DISABLED.unlink(missing_ok=True)
+        else:
+            LOCAL_DISABLED.touch()
+    _channels_cache = None
     return {"ok": True}
 
 

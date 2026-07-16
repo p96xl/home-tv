@@ -11,3 +11,4 @@ local.m3u
 vite.config.ts
 
 ua_hunt/
+local.disabled
